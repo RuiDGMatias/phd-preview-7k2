@@ -7,12 +7,12 @@
     psaCode: '',
   };
   const WORKS = [
-    { key: 'psa', title: '(Vacuum) pressure swing adsorption simulator',
+    { key: 'psa', title: 'Pressure Swing Adsorption simulator',
       text: 'A modular simulator for any (V)PSA cycle, with any adsorbent and any mixture of components, which extends easily to multi-column operation. The results viewer opens the simulation files in your browser, with nothing to install, and makes the results easy to inspect.',
       links: [['Open the results viewer', 'psa/viewer/index.html', 1], ['Read the article', LINKS.psaArticle], ['Read the code on GitHub', LINKS.psaCode]].filter(l => l[1]),
       later: LINKS.psaArticle ? '' : 'Article in preparation' },
-    { key: 'smb', title: 'Gas-phase simulated moving bed',
-      text: 'A ring of adsorption columns for gas separations, whose inlets and outlets move one column at a time to imitate a counter-current flow of adsorbent. The results viewer opens the simulation files in your browser and plays the profiles along the unit through the cycle.',
+    { key: 'smb', title: 'Gas-phase Simulated Moving Bed simulator',
+      text: 'A modular simulator for any SMB cycle, with any adsorbent and any mixture of components. The results viewer opens the simulation files in your browser, with nothing to install, and makes the results easy to inspect.',
       links: [['Open the results viewer', 'smb/viewer/index.html', 1]], later: 'Article and code in preparation' },
     { key: 'eco', title: 'Operating at YOUR economic optimum',
       text: 'Set the prices of electricity, biomethane and CO₂, and see where the best way to run the plant moves.',

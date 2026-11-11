@@ -51,6 +51,7 @@
   .seg { display:inline-flex; flex-wrap:wrap; border:1px solid var(--ink); border-radius:16px; overflow:hidden; }
   .seg button { background:none; border:0; padding:5px 11px; font-size:13px; cursor:pointer; }
   #pers button { padding:5px 9px; }
+  .spd { flex:none; display:flex; align-items:center; gap:8px; font-size:13px; white-space:nowrap; } .spd input[type=range] { flex:none; width:110px; accent-color:var(--ink); } .spd b { font-weight:600; min-width:34px; }
   .ph input[type=range] { width: 130px; accent-color: var(--ink); }
   .ph input.pn { width: 52px; font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); text-align: right; padding: 1px 0; }
   .ph .tt { opacity: .8; }
@@ -71,11 +72,12 @@
   #plot { flex:1; min-height:0; }
   .stage { flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; }
   .stage canvas { flex:1; min-height:0; width:100%; display:block; }
-  .controls { display:flex; align-items:center; gap:14px; }
+  .controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+  .controls #tslider { flex:1 1 240px; width:auto; }
   .pill { border:1px solid var(--ink); border-radius:999px; background:none; padding:7px 18px; cursor:pointer; font-size:13px; white-space:nowrap; }
   .pill.solid { background:var(--ink); color:var(--paper); }
   .pill:disabled { opacity:.45; cursor:default; }
-  .tfields { display:flex; gap:14px; font-size:13px; white-space:nowrap; }
+  .tfields { flex:none; display:flex; gap:14px; font-size:13px; white-space:nowrap; }
   .tfields input { font:inherit; color:var(--ink); background:transparent; border:0; border-bottom:1px solid var(--rule); width:58px; padding:2px 0; text-align:right; }
   .tfields input#f-per { width:36px; }
   .tfields input:focus { outline:none; border-bottom-color:var(--ink); }
@@ -114,11 +116,11 @@
   :root { --bg:#000; --paper:#0d0e11; --panelline:rgba(255,255,255,.12); }
   :root[data-theme="light"] { --bg:#e8eaed; --paper:#ffffff; --panelline:#d4d7db; }
   html, body { background:var(--bg); }
-  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:20px; padding:16px 24px 14px; }
+  .top { display:grid; grid-template-columns:auto 1fr auto; align-items:end; gap:20px; padding:16px 24px 14px; }
   .top .back { font-size:13px; text-decoration:none; } .top .back:hover { text-decoration:underline; text-underline-offset:3px; }
-  .top h2 { font-size:24px; font-weight:500; letter-spacing:-.01em; margin-top:4px; }
+  .top h2 { white-space:nowrap; font-size:22px; font-weight:500; letter-spacing:-.01em; margin-top:4px; }
   .top .right { display:flex; justify-content:flex-end; gap:18px; align-items:center; font-size:13px; padding-bottom:4px; }
-  .tabs { display:flex; gap:4px; border:1px solid var(--panelline); border-radius:999px; padding:4px; background:var(--paper); align-self:center; }
+  .tabs { justify-self:center; display:flex; gap:4px; border:1px solid var(--panelline); border-radius:999px; padding:4px; background:var(--paper); align-self:center; }
   .tabs button { background:none; border:0; padding:7px 18px; border-radius:999px; font-size:13.5px; cursor:pointer; }
   .tabs[hidden] { display:flex !important; visibility:hidden; }
   .tabs button:hover { background:var(--hover); }
@@ -137,7 +139,7 @@
 </head>
 <body>
 <header class="top">
-  <div><a class="back" href="../../index.html">Back to the works</a><h2>Gas-phase simulated moving bed</h2></div>
+  <div><a class="back" href="../../index.html">Back to the works</a><h2>Gas-phase Simulated Moving Bed simulator</h2></div>
   <nav class="tabs" id="tabs" aria-label="Views" hidden></nav>
   <div class="right"><button class="linkbtn" id="theme" type="button">Light mode</button><button class="linkbtn" id="openBtn" type="button">Open folder</button></div>
 </header>
@@ -195,7 +197,7 @@
         <label>t <input type="number" id="f-t" min="0" step="0.5"> s</label>
         <label><input type="number" id="f-pct" min="0" max="100" step="1"> % of t*</label>
       </span>
-      <select id="speed" style="width:auto" aria-label="speed"><option value="10">One cycle in 40 s</option><option value="20" selected>One cycle in 20 s</option><option value="40">One cycle in 10 s</option></select>
+      <label class="spd">Speed <input type="range" id="speed" min="0" max="7" step="1" value="3" aria-label="speed"> <b id="speedl">×1</b></label>
       <button class="pill" id="gif" type="button">Save as GIF</button>
     </div>
   <div id="plot" hidden></div>
@@ -317,12 +319,10 @@ function listRuns() {
   const cases = [...new Set(RUNS.map(r => r.case))];
   $('runs').innerHTML = cases.map(c => {
     const rs = RUNS.filter(r => r.case === c);
-    const opts = rs.map(r => `<option value="${RUNS.indexOf(r)}">${r.cycle === null ? 'last cycle' : 'cycle ' + r.cycle}${Object.keys(r.cols).length ? '' : ', without Columns'}</option>`).join('');
-    return `<div style="margin:6px 0"><b>${c}</b>${rs.length > 1 ? `<select data-case="${c}" style="margin-top:4px">${opts}</select>` : (Object.keys(rs[0].cols).length ? '' : '<div>without Columns</div>')}<button class="linkbtn" data-run="${RUNS.indexOf(rs.find(r => r.cycle === null) || rs[rs.length - 1])}" style="display:block;margin-top:4px">Show</button></div>`;
+    const main = rs.find(r => r.cycle === null) || rs[rs.length - 1];
+    return `<div style="margin:6px 0"><b>${c}</b>${Object.keys(main.cols).length ? '' : '<div>without Columns</div>'}${cases.length > 1 ? `<button class="linkbtn" data-run="${RUNS.indexOf(main)}" style="display:block;margin-top:4px">Show</button>` : ''}</div>`;
   }).join('');
-  $('runs').querySelectorAll('select').forEach(s => s.addEventListener('change', () => useRun(RUNS[+s.value])));
-  $('runs').querySelectorAll('button[data-run]').forEach(b => b.addEventListener('click', () => {
-    const s = b.parentElement.querySelector('select'); useRun(RUNS[s ? +s.value : +b.dataset.run]); }));
+  $('runs').querySelectorAll('button[data-run]').forEach(b => b.addEventListener('click', () => useRun(RUNS[+b.dataset.run])));
 }
 
 // ---------------------------------------------------------------- loading one run
@@ -365,7 +365,6 @@ async function useRun(r) {
   document.body.classList.add('busy'); say(`Reading ${r.case}${r.cycle ? ', cycle ' + r.cycle : ''}…`);
   try {
     const R = await loadRun(r);
-    $('runs').querySelectorAll('select').forEach(sl => { if (RUNS[+sl.value].case === r.case) sl.value = RUNS.indexOf(r); });
     COMPS = R.comps;
     COLS = R.hasCols ? R.colNames : Array.from({ length: R.N }, (_, i) => 'C' + (i + 1));
     RUN = R; S.colSel = new Set([...(S.colSel || [])].filter(c => COLS.includes(c))); if (!S.colSel.size) S.colSel.add(COLS[0]);
@@ -375,6 +374,14 @@ async function useRun(r) {
     $('empty').hidden = true; buildControls(); refresh();
   } catch (e) { console.error(e); say('Could not read the files: ' + e.message); }
   document.body.classList.remove('busy');
+}
+// the summary and the performance show the latest of the cycles chosen
+async function followCycles() {
+  const rs = cycleRuns().filter(r => S.cycSel.has(r)); if (!rs.length) return;
+  const last = rs[rs.length - 1]; if (last === RUN.meta) return;
+  document.body.classList.add('busy'); say(`Reading ${cycLabel(last)}…`);
+  try { const R = await loadRun(last); if (R.hasCols && R.N === RUN.N) { RUN = R; S.frame = Math.min(S.frame, R.t.length - 1); } } catch (e) { console.error(e); }
+  say(''); document.body.classList.remove('busy');
 }
 // the cycles that can be compared: the runs of the same case that have the Columns folder
 function cycleRuns() {
@@ -435,7 +442,7 @@ function buildControls() {
   $('pers').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const k = +b.dataset.k; S.perSel.has(k) ? S.perSel.delete(k) : S.perSel.add(k); if (!S.perSel.size) S.perSel.add(k); refresh(); }));
   const cr = cycleRuns();
   $('cycs').innerHTML = cr.map(r => `<button type="button" data-r="${RUNS.indexOf(r)}">${r.cycle ?? r.cycleNo ?? 'last'}</button>`).join('');
-  $('cycs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const r = RUNS[+b.dataset.r]; S.cycSel.has(r) ? S.cycSel.delete(r) : S.cycSel.add(r); if (!S.cycSel.size) S.cycSel.add(r); refresh(); }));
+  $('cycs').querySelectorAll('button').forEach(b => b.addEventListener('click', async () => { const r = RUNS[+b.dataset.r]; S.cycSel.has(r) ? S.cycSel.delete(r) : S.cycSel.add(r); if (!S.cycSel.size) S.cycSel.add(r); await followCycles(); refresh(); }));
   const perf = RUN.book.has('Performance') ? Object.keys(PERF).filter(k => RUN.book.table && true) : [];
   $('kpis').innerHTML = perf.map(k => `<label class="row"><span><input type="checkbox" value="${k}" ${S.kpis.has(k) ? 'checked' : ''}> ${PERF[k][0]}</span><span class="u">${PERF[k][1]}</span></label>`).join('');
   $('kpis').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? S.kpis.add(i.value) : S.kpis.delete(i.value); refresh(); }));
@@ -517,13 +524,13 @@ async function refresh() {
   $('tabs').hidden = false; $('fs').hidden = false; vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
   vis('box-gas', ['profiles', 'outlets'].includes(v) && (isMulti(S.variable) || (!RUN.hasCols && S.variable === 'y'))); buildGases();
   vis('box-pos', v === 'outlets' && RUN.hasCols);
-  vis('box-per', stat && RUN.hasCols); vis('box-cyc', ['profiles', 'outlets'].includes(v) && RUN.hasCols && cycleRuns().length > 1); vis('box-kpi', v === 'cycles');
+  vis('box-per', stat && RUN.hasCols); vis('box-cyc', RUN.hasCols && cycleRuns().length > 1); vis('box-kpi', v === 'cycles');
   vis('box-style', v !== 'summary'); vis('box-exp', true);
   $('stage').hidden = !anim_; $('plot').hidden = anim_ || stat || v === 'summary'; $('six').hidden = !stat; $('sixleg').hidden = !stat; $('summary').hidden = v !== 'summary';
   const cb = $('controls'); cb.hidden = !(anim_ || (v === 'summary' && RUN.hasCols)); $('gif').hidden = !anim_;
   if (anim_ && cb.parentElement !== $('stage')) $('stage').append(cb);
   $('strip').hidden = true;
-  const r = RUN.meta; $('meta').textContent = `${r.case}, ${r.cycle ? 'cycle ' + r.cycle : 'last cycle'}`;
+  const r = RUN.meta; $('meta').textContent = `${r.case}, cycle ${r.cycle ?? r.cycleNo ?? 'last'}`;
   try {
     if (anim_) await viewUnit(); else if (v === 'outlets') await viewOutlets(); else if (stat) await viewProfiles();
     else if (v === 'cycles') await viewCycles(); else await viewSummary();
@@ -650,7 +657,7 @@ async function viewSummary() {
     const k = (lab, key, u, d = 4) => p.head.includes(key) ? `<div>${lab}<b>${fmt(g(key), d)}<small>${u}</small></b></div>` : '';
     out.push(`<section class="wide"><div class="kpis">${k(`Extract purity${prod.X ? ', ' + gsub(prod.X) : ''}`, 'purity_X_pct', '%')}${k('Extract recovery', 'recovery_X_pct', '%')}${k(`Raffinate purity${prod.R ? ', ' + gsub(prod.R) : ''}`, 'purity_R_pct', '%')}${k('Raffinate recovery', 'recovery_R_pct', '%')}${k('Extract productivity', 'productivity_X_kg_m3_h', 'kg/(m³ h)')}${k('Raffinate productivity', 'productivity_R_kg_m3_h', 'kg/(m³ h)')}</div></section>`);
   }
-  out.push(`<section class="wide"><h3>The process: the unit, and where each column is in every period</h3><canvas id="scheme" role="img" aria-label="The columns in a row with the ports, and below them which column sits in each position in every period of the cycle."></canvas></section>`);
+  out.push(`<section class="wide"><h3>The process: the unit, and the zone of each column in every period</h3><canvas id="scheme" role="img" aria-label="The columns in a row with the ports, and below them which column sits in each position in every period of the cycle."></canvas></section>`);
   // the unit
   const unit = [['Columns', R.N], ['Zones (columns per zone)', R.zones.join('-')], ['Switching time t*', R.tsw + ' s'], ['Cycle', R.N * R.tsw + ' s']];
   if (R.hasCols) unit.push(['Column length', R.L * 1e3 + ' mm'], ['Cells per column', R.cells], ['Loop', R.loop], ['Model', R.model], ['Components', COMPS.join(', ')], ['Cycle written', R.colInfo[COLS[0]].info.cycle]);
@@ -695,58 +702,75 @@ async function prepScheme() {
 }
 function drawScheme(i, out) {
   const cvs = out ? out.canvas : $('scheme'); if (!cvs || !SCH) return;
-  const R = RUN, N = R.N, rowH = 26, closed = R.loop === 'closed';
-  const W = out ? out.W : cvs.getBoundingClientRect().width, top = 92, ch = 46, H = top + ch + (closed ? 74 : 56) + N * rowH + 6;
+  const R = RUN, N = R.N, rowH = 26, closed = R.loop === 'closed', roman = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+  const W = out ? out.W : cvs.getBoundingClientRect().width, top = 104, ch = 46, H = top + ch + 74 + N * rowH + 6;
   let C;
   if (out) C = out.ctx; else { const d = Math.min(devicePixelRatio || 1, 2); cvs.width = W * d; cvs.height = H * d; cvs.style.height = H + 'px'; C = cvs.getContext('2d'); C.setTransform(d, 0, 0, d, 0, 0); }
   C.fillStyle = TH.paper; C.fillRect(0, 0, W, H); C.font = '13px Sora, Segoe UI, sans-serif'; C.textBaseline = 'middle';
-  const ml = 86, mr = 20, pitch = (W - ml - mr) / N, gap = Math.min(26, pitch * .22), X = (pos, f) => ml + (pos - 1) * pitch + f * pitch;
-  const cx0 = p => X(p, 0) + gap / 2, cx1 = p => X(p, 1) - gap / 2, cy = top + ch / 2;
+  const ml = 86, mr = 24, pitch = (W - ml - mr) / N, gap = Math.min(28, pitch * .24), X = (j, f) => ml + (j - 1) * pitch + f * pitch;
+  const cx0 = j => X(j, 0) + gap / 2, cx1 = j => X(j, 1) - gap / 2, cy = top + ch / 2;
   const zEnd = []; let acc = 0; R.zones.forEach(n => { acc += n; zEnd.push(acc); });
-  const zoneOfPos = pos => zEnd.findIndex(e => pos <= e), roman = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-  let p0 = 1; R.zones.forEach((n, k) => { const x0 = X(p0, 0), x1 = X(p0 + n - 1, 1); C.fillStyle = TH.zone[k % 4]; C.fillRect(x0 + 1, 8, x1 - x0 - 2, 22);
-    C.fillStyle = k === 0 || (!TH.light && k === 1) ? '#ffffff' : TH.ink; C.textAlign = 'center'; C.fillText('Zone ' + roman[k], (x0 + x1) / 2, 19.5); p0 += n; });
-  const order = R.hasCols ? COLS.map(c => [R.posOf[c][i], c]) : COLS.map((c, k) => [k + 1, c]);
-  // pipes between the columns, and in and out of the unit
-  C.strokeStyle = TH.ink; C.lineWidth = 1.6; C.beginPath();
-  for (let p = 0; p <= N; p++) { const a = p === 0 ? X(1, 0) - 6 : cx1(p), b = p === N ? X(N, 1) + 6 : cx0(p + 1); C.moveTo(a, cy); C.lineTo(b, cy); }
-  C.stroke();
-  // the columns, filled with the gas composition along them
-  for (const [p, c] of order) {
-    const a = cx0(p), b = cx1(p);
-    if (R.hasCols) { const z = R.colInfo[c].z, ys = SCH.ys[c];
-      z.forEach((zz, j) => { const xa = a + (b - a) * (j ? (z[j - 1] + zz) / 2 / R.L : 0), xb = a + (b - a) * (j < z.length - 1 ? (zz + z[j + 1]) / 2 / R.L : 1); let y0 = top + ch;
-        COMPS.forEach((g, k) => { const h = Math.max(0, ys[k][i][j]) * ch; C.fillStyle = gasColour(g); C.fillRect(xa, y0 - h, xb - xa + .6, h); y0 -= h; }); }); }
-    C.strokeStyle = TH.ink; C.lineWidth = 1.4; C.strokeRect(a, top, b - a, ch);
-    C.fillStyle = TH.ink; C.textAlign = 'center'; C.fillText(c, (a + b) / 2, top + ch + 14);
+  const ZI = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5 };
+  // where each column is now; the columns stay in place, in the order the gas goes round them
+  const pos = c => R.hasCols ? R.posOf[c][i] : COLS.indexOf(c) + 1, colAt = p => COLS.find(c => pos(c) === p), jOf = c => COLS.indexOf(c) + 1;
+  const zoneOf = c => R.hasCols ? ZI[R.zoneOf[c][i]] : zEnd.findIndex(e => pos(c) <= e);
+  // zones above the columns, one band for each run of neighbouring columns in the same zone
+  let a = 1;
+  for (let j = 1; j <= N; j++) { const z = zoneOf(COLS[j - 1]); if (j === N || zoneOf(COLS[j]) !== z) {
+      const x0 = X(a, 0), x1 = X(j, 1); C.fillStyle = TH.zone[z % 4]; C.fillRect(x0 + 1, 8, x1 - x0 - 2, 22);
+      C.fillStyle = z === 0 || (!TH.light && z === 1) ? '#ffffff' : TH.ink; C.textAlign = 'center'; C.fillText('Zone ' + roman[z], (x0 + x1) / 2, 19.5); a = j + 1; } }
+  // the ports: boundary k is between column k and column k + 1; boundary 0 is the link from the last column back to the first
+  const bOut = c => jOf(c) % N, bIn = c => jOf(c) - 1;
+  const ports = [];
+  if (R.zones.length === 4) {
+    ports.push({ b: bIn(colAt(1)), into: true, label: SCH.prod.D ? `Desorbent, ${SCH.prod.D}` : 'Desorbent' });
+    ports.push({ b: bOut(colAt(zEnd[0])), into: false, label: SCH.prod.X ? `Extract, ${SCH.prod.X}` : 'Extract' });
+    ports.push({ b: bIn(colAt(zEnd[1] + 1)), into: true, label: 'Feed' });
+    ports.push({ b: bOut(colAt(zEnd[2])), into: false, label: SCH.prod.R ? `Raffinate, ${SCH.prod.R}` : 'Raffinate' });
+    if (!closed) ports.push({ b: bOut(colAt(N)), into: false, label: 'Zone IV out' });
   }
-  // ports, on the pipes between zones
-  const lab = (k, g) => g ? `${k}, ${g}` : k;
-  const port = (posEnd, label, into) => { const x = posEnd === 0 ? X(1, 0) - 6 : posEnd === N ? X(N, 1) + 6 : X(posEnd, 1), y0 = top - 36, y1 = cy - 1;
-    C.strokeStyle = TH.ink; C.fillStyle = TH.ink; C.lineWidth = 1.6; C.beginPath(); C.moveTo(x, y0); C.lineTo(x, into ? y1 - 6 : y1); C.stroke();
-    const yt = into ? y1 : y0, dd = into ? 1 : -1; C.beginPath(); C.moveTo(x - 5, yt - 7 * dd); C.lineTo(x + 5, yt - 7 * dd); C.lineTo(x, yt); C.closePath(); C.fill();
-    C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = posEnd === 0 ? 'left' : posEnd === N ? 'right' : 'center'; C.fillText(label, posEnd === 0 ? x - 4 : posEnd === N ? x + 4 : x, y0 - 10); C.font = '13px Sora, Segoe UI, sans-serif'; };
-  if (R.zones.length === 4) { port(0, lab('Desorbent', SCH.prod.D), true); port(zEnd[0], lab('Extract', SCH.prod.X), false); port(zEnd[1], 'Feed', true); port(zEnd[2], lab('Raffinate', SCH.prod.R), false);
-    if (!closed) port(N, 'Zone IV out', false); }
-  // closed loop: the outlet of zone IV goes back into zone I
-  let below = top + ch + 30;
-  if (closed) { const xa = X(N, 1) + 6, xb = X(1, 0) - 6, yb = top + ch + 30;
-    C.strokeStyle = TH.ink; C.fillStyle = TH.ink; C.lineWidth = 1.6; C.beginPath(); C.moveTo(cx1(N), cy); C.lineTo(xa, cy); C.lineTo(xa, yb); C.lineTo(xb, yb); C.lineTo(xb, cy + 7); C.stroke();
-    C.beginPath(); C.moveTo(xb - 5, cy + 8); C.lineTo(xb + 5, cy + 8); C.lineTo(xb, cy + 1); C.closePath(); C.fill();
-    C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = 'center'; C.fillStyle = TH.paper; const tw = C.measureText('Recycle').width + 12; C.fillRect((xa + xb) / 2 - tw / 2, yb - 8, tw, 16);
-    C.fillStyle = TH.ink; C.fillText('Recycle', (xa + xb) / 2, yb); below = yb + 18; }
+  const broken = closed ? -1 : bOut(colAt(N));          // open loop: nothing flows from zone IV into zone I
+  const bx = k => k === 0 ? null : (cx1(k) + cx0(k + 1)) / 2;
+  // pipes between neighbouring columns
+  C.strokeStyle = TH.ink; C.lineWidth = 1.6; C.beginPath();
+  for (let k = 1; k < N; k++) { const x = bx(k);
+    if (k === broken) { C.moveTo(cx1(k), cy); C.lineTo(x - 8, cy); C.moveTo(x + 8, cy); C.lineTo(cx0(k + 1), cy); }
+    else { C.moveTo(cx1(k), cy); C.lineTo(cx0(k + 1), cy); } }
+  // the ends of the row, and the link from the last column back to the first, drawn underneath
+  const xL = X(1, 0) - 4, xR = X(N, 1) + 4, yb = top + ch + 30;
+  C.moveTo(xL, cy); C.lineTo(cx0(1), cy); C.moveTo(cx1(N), cy); C.lineTo(xR, cy);
+  if (broken !== 0) { C.moveTo(xR, cy); C.lineTo(xR, yb); C.lineTo(xL, yb); C.lineTo(xL, cy); }
+  C.stroke();
+  if (broken !== 0) { C.fillStyle = TH.ink; C.beginPath(); C.moveTo(xL - 5, cy + 9); C.lineTo(xL + 5, cy + 9); C.lineTo(xL, cy + 2); C.closePath(); C.fill(); }
+  // the columns, filled with the gas composition along them
+  for (const c of COLS) { const j = jOf(c), a0 = cx0(j), b0 = cx1(j);
+    if (R.hasCols) { const z = R.colInfo[c].z, ys = SCH.ys[c];
+      z.forEach((zz, k) => { const xa = a0 + (b0 - a0) * (k ? (z[k - 1] + zz) / 2 / R.L : 0), xb = a0 + (b0 - a0) * (k < z.length - 1 ? (zz + z[k + 1]) / 2 / R.L : 1); let y0 = top + ch;
+        COMPS.forEach((g, gi) => { const h = Math.max(0, ys[gi][i][k]) * ch; C.fillStyle = gasColour(g); C.fillRect(xa, y0 - h, xb - xa + .6, h); y0 -= h; }); }); }
+    C.strokeStyle = TH.ink; C.lineWidth = 1.4; C.strokeRect(a0, top, b0 - a0, ch);
+    C.fillStyle = TH.ink; C.textAlign = 'center'; C.fillText(c, (a0 + b0) / 2, top + ch + 14); }
+  // the arrows: in from above into the pipe, out of the pipe upwards; in labels on the upper row, out labels on the lower
+  for (const pt of ports) {
+    let x = pt.b === 0 ? (pt.into ? xL : xR) : bx(pt.b);
+    if (pt.b === broken && pt.b !== 0) x += pt.into ? 8 : -8;
+    const yLab = pt.into ? top - 58 : top - 40, y0 = yLab + 9, y1 = cy - 1;
+    C.strokeStyle = TH.ink; C.fillStyle = TH.ink; C.lineWidth = 1.6; C.beginPath(); C.moveTo(x, y0); C.lineTo(x, pt.into ? y1 - 6 : y1); C.stroke();
+    const yt = pt.into ? y1 : y0, dd = pt.into ? 1 : -1; C.beginPath(); C.moveTo(x - 5, yt - 7 * dd); C.lineTo(x + 5, yt - 7 * dd); C.lineTo(x, yt); C.closePath(); C.fill();
+    C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = (pt.b === broken && pt.b !== 0) ? (pt.into ? 'left' : 'right') : x < ml + 30 ? 'left' : x > W - mr - 30 ? 'right' : 'center';
+    C.fillText(pt.label, C.textAlign === 'left' ? x - 4 : C.textAlign === 'right' ? x + 4 : x, yLab); C.font = '13px Sora, Segoe UI, sans-serif'; }
+  if (closed && broken !== 0) { C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = 'center'; C.fillStyle = TH.paper; const tw = C.measureText('Recycle').width + 12; C.fillRect((xL + xR) / 2 - tw / 2, yb - 8, tw, 16); C.fillStyle = TH.ink; C.fillText('Recycle', (xL + xR) / 2, yb); }
   // legend
-  C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = 'left'; let lx = ml;
+  let below = top + ch + 52; C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = 'left'; let lx = ml;
   if (R.hasCols) for (const g of COMPS) { C.fillStyle = gasColour(g); C.fillRect(lx, below - 5, 10, 10); C.fillStyle = TH.ink; C.fillText(g, lx + 15, below + .5); lx += 26 + C.measureText(g).width + 14; }
-  // the cycle: which column is in each position, period by period
-  const g0 = below + 18, posTable = {};
-  if (R.hasCols) COLS.forEach(c => R.colInfo[c].periods.rows.forEach(r => (posTable[r[0]] ||= {})[r[3]] = c));
-  else for (let k = 1; k <= N; k++) for (let p = 1; p <= N; p++) (posTable[k] ||= {})[p] = 'C' + (((p - 1 + k - 1) % N) + 1);
+  // the cycle: the zone of each column, period by period
+  const g0 = below + 16, zt = {};
+  if (R.hasCols) COLS.forEach(c => R.colInfo[c].periods.rows.forEach(r => (zt[r[0]] ||= {})[c] = ZI[r[4]]));
+  else for (let k = 1; k <= N; k++) COLS.forEach((c, n) => { const p = ((n - (k - 1)) % N + N) % N + 1; (zt[k] ||= {})[c] = zEnd.findIndex(e => p <= e); });
   const cur = R.hasCols ? R.per[i] : null;
   for (let k = 1; k <= N; k++) { const y = g0 + (k - 1) * rowH;
     C.fillStyle = TH.ink; C.textAlign = 'right'; C.font = (k === cur ? '600 ' : '') + '12px Sora, Segoe UI, sans-serif'; C.fillText('Period ' + k, ml - 10, y + rowH / 2);
-    for (let p = 1; p <= N; p++) { const z = zoneOfPos(p); C.fillStyle = TH.zone[z % 4]; C.globalAlpha = cur === null || k === cur ? 1 : .45; C.fillRect(X(p, 0) + 1, y + 1, pitch - 2, rowH - 2); C.globalAlpha = 1;
-      C.fillStyle = (cur === null || k === cur) ? (z === 0 || (!TH.light && z === 1) ? '#ffffff' : TH.ink) : (TH.light ? TH.ink : '#ffffff'); C.textAlign = 'center'; C.fillText(posTable[k][p] || '', X(p, .5), y + rowH / 2); }
+    COLS.forEach((c, n) => { const z = zt[k][c], j = n + 1; C.fillStyle = TH.zone[z % 4]; C.globalAlpha = cur === null || k === cur ? 1 : .45; C.fillRect(X(j, 0) + 1, y + 1, pitch - 2, rowH - 2); C.globalAlpha = 1;
+      C.fillStyle = (cur === null || k === cur) ? (z === 0 || (!TH.light && z === 1) ? '#ffffff' : TH.ink) : (TH.light ? TH.ink : '#ffffff'); C.textAlign = 'center'; C.fillText('Zone ' + roman[z], X(j, .5), y + rowH / 2); });
     if (k === cur) { C.strokeStyle = TH.ink; C.lineWidth = 1.5; C.strokeRect(X(1, 0) + .5, y + .5, N * pitch - 1, rowH - 1); } }
   if (!out && R.hasCols) showTime(i);
   return H;
@@ -835,12 +859,16 @@ $('play').addEventListener('click', () => { if (anim) stopAnim(); else startAnim
 function startAnim() {
   if (!RUN || !RUN.hasCols) return; stopAnim();
   $('play').textContent = 'Pause'; let last = performance.now(), acc = 0;
-  const step = now => { const n = RUN.t.length, perSec = n / (400 / (+$('speed').value)) ; acc += (now - last) / 1000 * (n / (RUN.N * RUN.tsw)) * (+$('speed').value); last = now;
+  const step = now => { const n = RUN.t.length; acc += (now - last) / 1000 * (n / (RUN.N * RUN.tsw)) * 20 * speedX(); last = now;
     if (acc >= 1) { S.frame = (S.frame + Math.floor(acc)) % n; acc -= Math.floor(acc); $('tslider').value = S.frame; render(S.frame); }
     anim = requestAnimationFrame(step); };
   anim = requestAnimationFrame(step);
 }
 addEventListener('resize', () => { if (S.view === 'profiles' && S.pmode === 'animated' && RUN && RUN.hasCols) { fitCanvas(); drawFrame(S.frame); } });
+
+// ---------------------------------------------------------------- speed of the animation: one cycle in 20 s at ×1
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4], speedX = () => SPEEDS[+$('speed').value] || 1;
+$('speed').addEventListener('input', () => $('speedl').textContent = '×' + speedX());
 
 // ---------------------------------------------------------------- full screen
 $('fs').addEventListener('click', () => { const m = $('mainpanel'); document.fullscreenElement ? document.exitFullscreen() : m.requestFullscreen && m.requestFullscreen(); });
@@ -900,7 +928,7 @@ $('gif').addEventListener('click', async () => {
     for (let p = 0, q = 0; p < idx.length; p++, q += 4) idx[p] = nearest(px[q], px[q + 1], px[q + 2]);
     frames.push(idx); if (frames.length % 10 === 0) { say(`Making the GIF: ${Math.round(100 * i / n)} %`); await new Promise(r => setTimeout(r)); }
   }
-  const gif = gifEncode(frames, W, H, 8, pal), url = URL.createObjectURL(new Blob([gif], { type: 'image/gif' }));
+  const gif = gifEncode(frames, W, H, Math.max(2, Math.round(8 / speedX())), pal), url = URL.createObjectURL(new Blob([gif], { type: 'image/gif' }));
   const a = document.createElement('a'); a.href = url; a.download = `smb_${RUN.meta.case}_${S.variable}.gif`; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000); say(`GIF saved: ${frames.length} frames.`); btn.disabled = false;
 });
