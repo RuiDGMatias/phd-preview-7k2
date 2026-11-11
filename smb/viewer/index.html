@@ -105,20 +105,44 @@
   #status { font-size:13px; min-height:1.4em; }
   body.busy { cursor:progress; }
   @media (max-width:900px) { .shell { grid-template-columns:1fr; height:auto; } main { min-height:90vh; } }
+  /* ---- panels: graphite rounded panels on the page, tabs on top ---- */
+  :root { --bg:#000; --paper:#0d0e11; --panelline:rgba(255,255,255,.12); }
+  :root[data-theme="light"] { --bg:#e8eaed; --paper:#ffffff; --panelline:#d4d7db; }
+  html, body { background:var(--bg); }
+  .top { display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:20px; padding:16px 24px 14px; }
+  .top .back { font-size:13px; text-decoration:none; } .top .back:hover { text-decoration:underline; text-underline-offset:3px; }
+  .top h2 { font-size:24px; font-weight:500; letter-spacing:-.01em; margin-top:4px; }
+  .top .right { display:flex; justify-content:flex-end; gap:18px; align-items:center; font-size:13px; padding-bottom:4px; }
+  .tabs { display:flex; gap:4px; border:1px solid var(--panelline); border-radius:999px; padding:4px; background:var(--paper); align-self:center; }
+  .tabs button { background:none; border:0; padding:7px 18px; border-radius:999px; font-size:13.5px; cursor:pointer; }
+  .tabs[hidden] { display:flex !important; visibility:hidden; }
+  .tabs button:hover { background:var(--hover); }
+  .tabs button.on { background:var(--ink); color:var(--paper); }
+  .shell { grid-template-columns:292px minmax(0,1fr); gap:14px; padding:0 14px 14px; height:calc(100vh - 86px); }
+  .side { background:var(--paper); border:1px solid var(--panelline); border-radius:18px; padding:16px 20px 22px; }
+  .side > .box:first-child { border-top:0; margin-top:0; padding-top:0; }
+  .opt.on::before { left:-20px; }
+  main { background:var(--paper); border:1px solid var(--panelline); border-radius:18px; padding:16px 20px 12px; min-height:0; }
+  .head h1 { font-size:15px; }
+  .side select option { background:var(--paper); }
+  @media (max-width:900px) { .top { grid-template-columns:1fr; } .shell { height:auto; } }
 </style>
 </head>
 <body>
+<header class="top">
+  <div><a class="back" href="../../index.html">Back to the works</a><h2>Gas-phase simulated moving bed</h2></div>
+  <nav class="tabs" id="tabs" aria-label="Views" hidden></nav>
+  <div class="right"><button class="linkbtn" id="theme" type="button">Light mode</button><button class="linkbtn" id="openBtn" type="button">Open folder</button></div>
+</header>
 <div class="shell">
 <aside class="side" aria-label="Controls">
-  <a class="back" href="../../index.html">Back to the works</a>
-  <button class="linkbtn" id="theme" type="button">Light mode</button>
 
-  <div class="box"><h4>Results <button class="linkbtn" id="openBtn" type="button">Open folder</button></h4>
+  <div class="box"><h4>Results</h4>
     <input type="file" id="folderpick" webkitdirectory directory multiple hidden>
     <div id="runs" class="small">No folder open.</div>
   </div>
 
-  <div class="box" id="box-view" hidden><h4>View</h4><div id="views"></div></div>
+  <div id="views" hidden></div>
   <div class="box" id="box-mode" hidden><h4>Profiles</h4><div class="seg" id="pmode"><button type="button" data-m="static">Static</button><button type="button" data-m="animated">Animated</button></div></div>
   <div class="box" id="box-cyc" hidden><h4>Cycles</h4><div class="seg" id="cycs"></div></div>
   <div class="box" id="box-per" hidden><h4>Periods</h4><div class="seg" id="pers"></div></div>
@@ -189,7 +213,7 @@ const saveStyle = () => { try { localStorage.setItem(STYLE_KEY, JSON.stringify(S
 function applyTheme() {
   const light = document.documentElement.dataset.theme === 'light';
   const cs = getComputedStyle(document.documentElement);
-  Object.assign(TH, { light, ink: light ? '#111111' : '#f2f3f5', paper: light ? '#ffffff' : '#000000',
+  Object.assign(TH, { light, ink: light ? '#111111' : '#f2f3f5', paper: light ? '#ffffff' : '#0d0e11',
     grid: light ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.08)', axis: light ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.4)',
     series: light ? SERIES.light : SERIES.dark, zone: ['--z1','--z2','--z3','--z4'].map(v => cs.getPropertyValue(v).trim()) });
   $('theme').textContent = light ? 'Dark mode' : 'Light mode';
@@ -382,7 +406,10 @@ const VIEWS = [['profiles', 'Profiles', 0], ['outlets', 'Histories', 0], ['cycle
 const LITE = { y: ['y, leaving each position', '-'], P_outlet: ['P, at the outlet of each column', 'bar'], T_middle: ['T, in the middle of each column', 'K'] };
 const PERF = { purity_X_pct: ['Extract purity', '%'], recovery_X_pct: ['Extract recovery', '%'], productivity_X_kg_m3_h: ['Extract productivity', 'kg/(m³ h)'], desorbent_X_m3STP_kg: ['Extract desorbent use', 'm³(STP)/kg'],
   purity_R_pct: ['Raffinate purity', '%'], recovery_R_pct: ['Raffinate recovery', '%'], productivity_R_kg_m3_h: ['Raffinate productivity', 'kg/(m³ h)'], desorbent_R_m3STP_kg: ['Raffinate desorbent use', 'm³(STP)/kg'], mass_balance: ['Mass balance error', '-'] };
+const TABNAME = { profiles: 'Profiles', outlets: 'Histories', cycles: 'Performance', summary: 'Summary' };
 function buildControls() {
+  $('tabs').innerHTML = VIEWS.map(([k]) => `<button type="button" data-v="${k}">${TABNAME[k]}</button>`).join('');
+  $('tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.view = b.dataset.v; refresh(); }));
   $('views').innerHTML = VIEWS.map(([k, l, need]) => `<button class="opt" data-v="${k}" type="button" ${need && !RUN.hasCols ? 'disabled style="opacity:.4"' : ''}>${l}</button>`).join('');
   $('views').querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => { if (b.disabled) return; S.view = b.dataset.v; refresh(); }));
   buildVars();
@@ -454,7 +481,7 @@ function periodLines() { return Array.from({ length: RUN.N + 1 }, (_, k) => ({ t
 async function refresh() {
   if (!RUN) return;
   stopAnim();
-  document.querySelectorAll('#views .opt').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
+  document.querySelectorAll('#views .opt, #tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
   document.querySelectorAll('#cols button').forEach(b => b.classList.toggle('on', b.dataset.c === 'All' ? S.colSel.size === COLS.length : S.colSel.has(b.dataset.c)));
   document.querySelectorAll('#cycs button').forEach(b => b.classList.toggle('on', S.cycSel.has(RUNS[+b.dataset.r])));
   document.querySelectorAll('#pmode button').forEach(b => { b.classList.toggle('on', b.dataset.m === S.pmode); b.disabled = b.dataset.m === 'animated' && !RUN.hasCols; });
@@ -462,7 +489,7 @@ async function refresh() {
   document.querySelectorAll('#posmode button').forEach(b => b.classList.toggle('on', b.dataset.p === S.pos));
   document.querySelectorAll('#pers button').forEach(b => b.classList.toggle('on', S.perSel.has(+b.dataset.k)));
   const v = S.view, anim_ = v === 'profiles' && S.pmode === 'animated', stat = v === 'profiles' && S.pmode === 'static', vis = (id, on) => $(id).hidden = !on;
-  vis('box-view', true); vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
+  $('tabs').hidden = false; vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
   vis('box-gas', ['profiles', 'outlets'].includes(v) && (isGasVar(S.variable) || (!RUN.hasCols && S.variable === 'y')));
   vis('box-pos', v === 'outlets' && RUN.hasCols);
   vis('box-per', stat && RUN.hasCols); vis('box-cyc', ['profiles', 'outlets'].includes(v) && RUN.hasCols && cycleRuns().length > 1); vis('box-kpi', v === 'cycles');
