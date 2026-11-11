@@ -125,6 +125,7 @@
   main { background:var(--paper); border:1px solid var(--panelline); border-radius:18px; padding:16px 20px 12px; min-height:0; }
   .head h1 { font-size:15px; }
   .side select option { background:var(--paper); }
+  main:fullscreen { border-radius:0; border:0; padding:26px 30px 18px; }
   @media (max-width:900px) { .top { grid-template-columns:1fr; } .shell { height:auto; } }
 </style>
 </head>
@@ -167,8 +168,8 @@
   <div class="box" id="box-exp" hidden><h4>Export this view</h4><button class="linkbtn" id="png" type="button" style="display:block;margin-bottom:6px">Image (PNG)</button><button class="linkbtn" id="xlsx" type="button">Data (Excel)</button></div>
 </aside>
 
-<main>
-  <div class="head"><h1 id="title">SMB results viewer</h1><span class="meta" id="meta"></span></div>
+<main id="mainpanel">
+  <div class="head"><h1 id="title">SMB results viewer</h1><span class="meta"><span id="meta"></span><button class="linkbtn" id="fs" type="button" style="margin-left:16px" hidden>Full screen</button></span></div>
   <div class="strip" id="strip" hidden></div>
   <div id="status" aria-live="polite"></div>
   <div class="empty" id="empty">
@@ -489,7 +490,7 @@ async function refresh() {
   document.querySelectorAll('#posmode button').forEach(b => b.classList.toggle('on', b.dataset.p === S.pos));
   document.querySelectorAll('#pers button').forEach(b => b.classList.toggle('on', S.perSel.has(+b.dataset.k)));
   const v = S.view, anim_ = v === 'profiles' && S.pmode === 'animated', stat = v === 'profiles' && S.pmode === 'static', vis = (id, on) => $(id).hidden = !on;
-  $('tabs').hidden = false; vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
+  $('tabs').hidden = false; $('fs').hidden = false; vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
   vis('box-gas', ['profiles', 'outlets'].includes(v) && (isGasVar(S.variable) || (!RUN.hasCols && S.variable === 'y')));
   vis('box-pos', v === 'outlets' && RUN.hasCols);
   vis('box-per', stat && RUN.hasCols); vis('box-cyc', ['profiles', 'outlets'].includes(v) && RUN.hasCols && cycleRuns().length > 1); vis('box-kpi', v === 'cycles');
@@ -810,6 +811,15 @@ function startAnim() {
   anim = requestAnimationFrame(step);
 }
 addEventListener('resize', () => { if (S.view === 'profiles' && S.pmode === 'animated' && RUN && RUN.hasCols) { fitCanvas(); drawFrame(S.frame); } });
+
+// ---------------------------------------------------------------- full screen
+$('fs').addEventListener('click', () => { const m = $('mainpanel'); document.fullscreenElement ? document.exitFullscreen() : m.requestFullscreen && m.requestFullscreen(); });
+document.addEventListener('fullscreenchange', () => { $('fs').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
+  setTimeout(() => { if (!RUN) return;
+    if (S.view === 'summary') drawScheme(S.frame);
+    else if (S.view === 'profiles' && S.pmode === 'animated' && RUN.hasCols) { fitCanvas(); drawFrame(S.frame); }
+    else if (S.view === 'profiles') for (let n = 0; n < 6; n++) Plotly.Plots.resize('pp' + n);
+    else Plotly.Plots.resize('plot'); }, 150); });
 
 // ---------------------------------------------------------------- GIF (a small encoder: fixed palette, LZW)
 function gifEncode(frames, W, H, delayCs, palette) {
