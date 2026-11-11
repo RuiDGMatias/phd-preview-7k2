@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>(function(){var t;try{t=localStorage.getItem('home-theme')}catch(e){}if(!t)t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rui D. G. Matias: AI-driven quantum twins for chemical separation processes</title>
 <meta name="robots" content="noindex, nofollow">
@@ -78,16 +79,29 @@ footer div{display:flex;gap:24px}
   .hero-cap{left:var(--g);right:var(--g);bottom:16px;text-align:left;justify-content:space-between}
   .win-body{grid-template-columns:1fr;padding:12px}
   .screen{min-height:340px}
-  .top nav{display:none}
+  .top nav a{display:none}
 }
 @media (prefers-reduced-motion:reduce){.pill{transition:none}}
   .h1more { display: block; margin-top: .35em; }
+.top nav button{all:unset;cursor:pointer;font-size:15px;text-decoration:underline;text-underline-offset:.25em;text-decoration-thickness:1px}
+.top nav button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+/* light: graphite on a pale grey page, white panels */
+:root[data-theme=light]{--bg:#eceef1;--ink:#111;--panel:#ffffff;--line:rgba(0,0,0,.12)}
+:root[data-theme=light] .hero .fade{background:linear-gradient(90deg,#eceef1 22%,rgba(236,238,241,.65) 44%,rgba(236,238,241,0) 64%)}
+:root[data-theme=light] .window{background:linear-gradient(180deg,#f7f8f9,#f1f2f4);box-shadow:0 30px 90px rgba(0,0,0,.08)}
+:root[data-theme=light] .screen{background:#fff;--ink:#111}
+:root[data-theme=light] .pill.solid{color:#fff}
+:root[data-theme=light] .pill.solid:hover{color:var(--ink)}
+:root[data-theme=light] .pill.line:hover{color:#fff}
+:root[data-theme=light] .list button:hover{background:rgba(0,0,0,.05)}
+:root[data-theme=light] .list li.active button{background:rgba(0,0,0,.08)}
+@media (max-width:760px){:root[data-theme=light] .hero .fade{background:linear-gradient(180deg,#eceef1 45%,rgba(236,238,241,0) 75%)}}
 </style>
 </head>
 <body data-select="click">
 <header class="top">
   <b>Rui D. G. Matias</b>
-  <nav aria-label="Contact"><a href="#works">Works</a><a href="mailto:up201806812@up.pt">Email</a></nav>
+  <nav aria-label="Contact"><a href="#works">Works</a><a href="mailto:up201806812@up.pt">Email</a><button id="theme" type="button">Light mode</button></nav>
 </header>
 
 <section class="hero">
@@ -110,6 +124,10 @@ footer div{display:flex;gap:24px}
 
 <footer><span>Rui D. G. Matias, LSRE-LCM, Faculty of Engineering, University of Porto</span><div><a href="mailto:up201806812@up.pt">up201806812@up.pt</a></div></footer>
 
+<script>
+(() => { const b = document.getElementById('theme'), set = t => { document.documentElement.dataset.theme = t; b.textContent = t === 'light' ? 'Dark mode' : 'Light mode'; try { localStorage.setItem('home-theme', t); } catch (e) {} };
+  set(document.documentElement.dataset.theme); b.onclick = () => set(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); })();
+</script>
 <script src="assets/hero-symbol.js"></script>
 <script src="assets/works.js"></script>
 

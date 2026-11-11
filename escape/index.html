@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>(function(){var t;try{t=localStorage.getItem("escape-theme")}catch(e){}if(!t)t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t;})();</script>
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Operating at YOUR economic optimum</title>
@@ -31,7 +32,7 @@
   h1 { margin:0; font-size:26px; font-weight:500; letter-spacing:-.02em; }
   header p { margin:6px 0 0; font-size:13px; max-width:110ch; }
 
-  .wrap { display:grid; grid-template-columns: 300px minmax(0,1fr) 340px; gap:14px; padding:0 14px 14px; height:calc(100vh - 86px); min-height:680px; }
+  .wrap { display:grid; grid-template-columns: 300px minmax(0,1fr) 340px; gap:14px; padding:0 14px 14px; height:calc(100vh - 100px); min-height:680px; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:18px 18px 16px; overflow-y:auto; }
   .card h2 { font-size:13px; font-weight:600; margin:22px 0 10px; letter-spacing:.01em; }
   .card h2:first-child { margin-top:0; }
@@ -81,14 +82,23 @@
 
   @media (max-width: 1200px) { .wrap { grid-template-columns: 290px minmax(0,1fr); height:auto; } .answer { grid-column: 1 / -1; } .plots { grid-template-rows: 560px 400px; } }
   @media (max-width: 760px)  { .wrap { grid-template-columns: 1fr; } .plots { grid-template-rows: 480px 360px; } header { flex-direction:column; align-items:flex-start; } }
+  :root[data-theme="light"] { --bg:#e8eaed; --ink:#111; --panel:#ffffff; --card:#f4f5f6; --line:rgba(0,0,0,.14); --line2:rgba(0,0,0,.07); --lime:#4d6a00; --warn:#b3261e; }
+  :root[data-theme="light"] .modebar-btn path { fill: #8a8f96 !important; }
+  :root[data-theme="light"] .modebar-btn:hover path { fill: #111 !important; }
+  .home { color:var(--ink); display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; text-decoration:none; border:1px solid var(--line); border-radius:999px; padding:5px 14px 5px 9px; margin-bottom:10px; background:var(--panel); }
+  .home:hover { border-color:var(--ink); }
+  .themebtn { font:inherit; font-size:13px; color:var(--ink); display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:999px; padding:5px 14px; background:var(--panel); cursor:pointer; align-self:flex-start; }
+  .themebtn:hover { border-color:var(--ink); }
+
 </style>
 </head>
 <body>
 <header>
   <div>
-    <a class="back" href="../index.html">Back to the works</a>
+    <a class="home" href="../index.html"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Homepage</a>
     <h1>Operating at YOUR economic optimum</h1>
   </div>
+  <button class="themebtn" id="theme" type="button">Light mode</button>
 </header>
 <div class="wrap">
 <aside class="card" aria-label="Your market">
@@ -144,6 +154,17 @@ const HOURS = 8000;                      // operating hours per year, for the ye
 const MARKERS = ["circle", "square", "cross", "x", "circle-open", "square-open"];
 const MCOLOURS = ["#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff"];
 const SCALE = [[0, "#16324f"], [0.5, "#0099ff"], [1, "#e0f354"]];   // profit: low to high
+// ---------- light and dark
+const TH = {};
+const W = a => `rgba(${TH.rgb},${a})`;
+function applyTheme() {
+  const light = document.documentElement.dataset.theme === "light";
+  Object.assign(TH, { light, rgb: light ? "0,0,0" : "255,255,255", ink: light ? "#111111" : "#f2f3f5", paper: light ? "#ffffff" : "#000000", panel: light ? "#ffffff" : "#0d0e11",
+    miss: light ? "#c9ccd1" : "#3a3d43", miss2: light ? "#b0b4ba" : "#5d6168", opt: light ? "#e0f354" : "#e0f354" });
+  SCALE.splice(0, SCALE.length, ...(light ? [[0, "#dbe7f5"], [0.5, "#0099ff"], [1, "#0b2a55"]] : [[0, "#16324f"], [0.5, "#0099ff"], [1, "#e0f354"]]));
+  document.getElementById("theme").textContent = light ? "Dark mode" : "Light mode";
+}
+applyTheme();
 const n = D.t_feed.length;
 const $ = id => document.getElementById(id);
 const fmt = (v, d) => Number(v).toLocaleString("en-GB", {minimumFractionDigits:d, maximumFractionDigits:d});
@@ -217,8 +238,8 @@ function front3(idx) {
 
 // ---------- plots ----------
 const axis = title => ({ title: { text: title, font: { size: 13 } }, tickfont: { size: 11 },
-  backgroundcolor: "#000000", gridcolor: "rgba(255,255,255,.07)", zerolinecolor: "rgba(255,255,255,.25)", showbackground: false, linecolor: "rgba(255,255,255,.35)", showspikes: false });
-const FONT = { family: "Sora, Segoe UI, Arial, sans-serif", color: "#f2f3f5" };
+  backgroundcolor: TH.paper, gridcolor: W(.07), zerolinecolor: W(.25), showbackground: false, linecolor: W(.35), showspikes: false });
+const FONT = { family: "Sora, Segoe UI, Arial, sans-serif", color: TH.ink };
 const CONF = { responsive: true, displaylogo: false };
 
 function draw3d(p, fr, idx, ib) {
@@ -230,7 +251,7 @@ function draw3d(p, fr, idx, ib) {
     traces.push({ type: "scatter3d", mode: "markers", name: "Misses the specifications",
       x: o.map(i => D.F_CO2_kg_h[i]), y: o.map(i => D.F_CH4_kg_h[i]), z: o.map(i => D.E_kW[i]),
       text: o.map(i => hover[i]), hovertemplate: "%{text}<extra>misses the specifications</extra>",
-      marker: { size: 2, color: "#5d6168", opacity: 0.35 } });
+      marker: { size: 2, color: TH.miss2, opacity: 0.35 } });
   }
   traces.push({ type: "scatter3d", mode: "markers", name: `Pareto front (${fr.length} points)`,
     x: fr.map(i => D.F_CO2_kg_h[i]), y: fr.map(i => D.F_CH4_kg_h[i]), z: fr.map(i => D.E_kW[i]),
@@ -243,16 +264,16 @@ function draw3d(p, fr, idx, ib) {
       x: [D.F_CO2_kg_h[j]], y: [D.F_CH4_kg_h[j]], z: [D.E_kW[j]],
       text: [hover[j]], hovertemplate: `<b>${c.name} optimum</b><br>%{text}<extra></extra>`,
       marker: { size: 7, symbol: MARKERS[k % MARKERS.length], color: MCOLOURS[k % MCOLOURS.length],
-                line: { color: "#000000", width: 1 } } });
+                line: { color: TH.paper, width: 1 } } });
   });
   if (ib >= 0) traces.push({ type: "scatter3d", mode: "markers", name: "Optimum, inputs on the left",
     x: [D.F_CO2_kg_h[ib]], y: [D.F_CH4_kg_h[ib]], z: [D.E_kW[ib]],
     text: [hover[ib]], hovertemplate: "<b>Optimum</b><br>%{text}<extra></extra>",
-    marker: { size: 9, symbol: "diamond", color: "#e0f354", line: { color: "#000000", width: 2 } } });
+    marker: { size: 9, symbol: "diamond", color: TH.opt, line: { color: TH.paper, width: 2 } } });
   Plotly.react("plot3d", traces, {
     font: FONT, margin: { l: 0, r: 0, t: 40, b: 0 }, paper_bgcolor: "rgba(0,0,0,0)",
     legend: { x: 0.01, y: 0.02, yanchor: "bottom", bgcolor: "rgba(0,0,0,0)", borderwidth: 0, font: { size: 12 } },
-    hoverlabel: { bgcolor: "#0d0e11", bordercolor: "rgba(255,255,255,.3)", font: { family: FONT.family, color: "#f2f3f5" } },
+    hoverlabel: { bgcolor: TH.panel, bordercolor: W(.3), font: { family: FONT.family, color: TH.ink } },
     scene: { xaxis: axis("F<sub>CO2</sub> (kg/h)"), yaxis: axis("F<sub>CH4</sub> (kg/h)"), zaxis: axis("E (kW)"),
              camera: { eye: { x: 1.6, y: -1.6, z: 0.9 } }, aspectmode: "cube" },
     uirevision: "keep" }, { ...CONF, toImageButtonOptions: { format: "png", filename: "pareto_front_specs", scale: 3 } });
@@ -266,21 +287,21 @@ function drawMap(p, idx, ib) {
     { type: "scattergl", mode: "markers", name: "Misses the specifications",
       x: o.map(i => 100 * D.Pur_CO2[i]), y: o.map(i => 100 * D.Pur_CH4[i]), customdata: o,
       text: o.map(i => hover[i]), hovertemplate: "%{text}<extra></extra>",
-      marker: { size: 3.5, color: "#3a3d43" } },
+      marker: { size: 3.5, color: TH.miss } },
     { type: "scattergl", mode: "markers", name: "Meets the specifications",
       x: idx.map(i => 100 * D.Pur_CO2[i]), y: idx.map(i => 100 * D.Pur_CH4[i]), customdata: idx,
       text: idx.map(i => hover[i]), hovertemplate: "%{text}<br>Profit %{marker.color:.2f} EUR/h<extra></extra>",
       marker: { size: 4.5, color: idx.map(i => profit(i, p)), colorscale: SCALE, showscale: false } } ];
   if (ib >= 0) traces.push({ type: "scattergl", mode: "markers", name: "Optimum",
       x: [100 * D.Pur_CO2[ib]], y: [100 * D.Pur_CH4[ib]], customdata: [ib], hoverinfo: "skip",
-      marker: { size: 13, symbol: "diamond", color: "#e0f354", line: { color: "#000000", width: 2 } } });
-  const line = { color: "rgba(255,255,255,.7)", width: 1 };
+      marker: { size: 13, symbol: "diamond", color: TH.opt, line: { color: TH.paper, width: 2 } } });
+  const line = { color: W(.7), width: 1 };
   Plotly.react("plotmap", traces, {
     font: FONT, margin: { l: 58, r: 16, t: 56, b: 46 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-    hoverlabel: { bgcolor: "#0d0e11", bordercolor: "rgba(255,255,255,.3)", font: { family: FONT.family, color: "#f2f3f5" } },
+    hoverlabel: { bgcolor: TH.panel, bordercolor: W(.3), font: { family: FONT.family, color: TH.ink } },
     showlegend: true, legend: { orientation: "h", x: 1, xanchor: "right", y: 1.0, yanchor: "bottom", font: { size: 12 } },
-    xaxis: { title: { text: "CO<sub>2</sub> purity (%)" }, gridcolor: "rgba(255,255,255,.08)", zeroline: false, linecolor: "rgba(255,255,255,.35)" },
-    yaxis: { title: { text: "CH<sub>4</sub> purity (%)" }, gridcolor: "rgba(255,255,255,.08)", zeroline: false, linecolor: "rgba(255,255,255,.35)" },
+    xaxis: { title: { text: "CO<sub>2</sub> purity (%)" }, gridcolor: W(.08), zeroline: false, linecolor: W(.35) },
+    yaxis: { title: { text: "CH<sub>4</sub> purity (%)" }, gridcolor: W(.08), zeroline: false, linecolor: W(.35) },
     shapes: [
       { type: "line", xref: "x", yref: "paper", x0: 100 * p.sCO2, x1: 100 * p.sCO2, y0: 0, y1: 1, line },
       { type: "line", xref: "paper", yref: "y", x0: 0, x1: 1, y0: 100 * p.sCH4, y1: 100 * p.sCH4, line } ],
@@ -382,6 +403,12 @@ function schedule() { if (!pending) { pending = true; requestAnimationFrame(() =
 ["sCH4", "sCO2", "pCH4", "pCO2", "pEl"].forEach(id => $(id).addEventListener("input", schedule));
 $("showAll").addEventListener("change", schedule);
 update();
+
+document.getElementById("theme").addEventListener("click", () => {
+  const t = TH.light ? "dark" : "light"; document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("escape-theme", t); } catch (e) {}
+  applyTheme(); FONT.color = TH.ink; update();
+});
 </script>
 </body>
 </html>

@@ -43,29 +43,30 @@
   const ARIA = {
     psa: 'Four connected adsorption columns taking turns; each bed fills with a lighter tone as it takes up CO2.',
     smb: 'A ring of eight columns; two bands of solute travel round the ring while the inlets and outlets jump one column at a time.',
-    eco: 'Three price sliders moving; on a map of profit, the optimum moves as the prices change.',
-    rlp: 'An agent reads the state of a column and opens its feed valve; its productivity rises over training episodes.',
-    rle: 'The electricity price rises and falls; the agent learns to lower the plant load when energy is dear.',
+    eco: 'Three price sliders moving; on a surface of profit drawn as a mesh, the peak moves as the prices change.',
+    rlp: 'An agent and two connected columns in a loop of state and action, while the feed composition changes; productivity rises over training episodes.',
+    rle: 'The same loop, with the feed and ambient temperatures, prices, feed composition and feed flow all changing; profit rises over training episodes.',
   };
 
   // ---------- drawing helpers (virtual space 1000 x 620)
-  const VW = 1000, VH = 620, L = 'rgba(255,255,255,.92)', F = 'rgba(255,255,255,.38)';
+  const VW = 1000, VH = 620; let INK = '255,255,255', BG = '#000', L = 'rgba(255,255,255,.92)', F = 'rgba(255,255,255,.38)';
+  function themeColours() { const light = document.documentElement.dataset.theme === 'light'; INK = light ? '17,17,17' : '255,255,255'; BG = light ? '#ffffff' : '#000'; L = `rgba(${INK},.92)`; F = `rgba(${INK},.38)`; }
   let ctx, W, H, D;
   // the part of the virtual space each schematic uses, so it fills the screen
-  const BOUNDS = { psa: [130, 80, 870, 560], smb: [250, 70, 750, 550], eco: [100, 85, 900, 520], rlp: [140, 70, 910, 550], rle: [100, 90, 990, 490] };
+  const BOUNDS = { psa: [130, 80, 870, 560], smb: [250, 70, 750, 550], eco: [50, 70, 960, 560], rlp: [30, 80, 960, 570], rle: [20, 80, 970, 570] };
   function fit() { D = Math.min(devicePixelRatio || 1, 2); const r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * D; cv.height = H * D; ctx = cv.getContext('2d'); }
   function place(key) {
     const [x0, y0, x1, y1] = BOUNDS[key], k = Math.min(W / (x1 - x0), H / (y1 - y0)) * .86;
     const ox = (W - (x1 - x0) * k) / 2 - x0 * k, oy = (H - (y1 - y0) * k) / 2 - y0 * k;
     ctx.setTransform(D * k, 0, 0, D * k, D * ox, D * oy);
   }
-  const tone = a => `rgba(255,255,255,${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+  const tone = a => `rgba(${INK},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
   const ln = (x1, y1, x2, y2, w = 1.2, s = L) => { ctx.strokeStyle = s; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
   const poly = (pts, w = 1.4, s = L) => { ctx.strokeStyle = s; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); };
-  const pipes = ls => { ctx.lineJoin = 'round'; [[7, L], [4.8, '#000']].forEach(([w, s]) => ls.forEach(p => poly(p, w, s))); };
-  const chev = (x, y, a) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = '#000'; ctx.fillRect(-8, -8, 16, 16); ctx.strokeStyle = L; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(3, 0); ctx.lineTo(-4, 5); ctx.stroke(); ctx.restore(); };
-  const valve = (x, y, open, rot = 0) => { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = '#000'; ctx.fillRect(-9, -9, 18, 18);
-    ctx.beginPath(); ctx.moveTo(-8, -6); ctx.lineTo(8, 6); ctx.lineTo(8, -6); ctx.lineTo(-8, 6); ctx.closePath(); ctx.fillStyle = open ? L : '#000'; ctx.fill(); ctx.strokeStyle = L; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore(); };
+  const pipes = ls => { ctx.lineJoin = 'round'; [[7, L], [4.8, BG]].forEach(([w, s]) => ls.forEach(p => poly(p, w, s))); };
+  const chev = (x, y, a) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = BG; ctx.fillRect(-8, -8, 16, 16); ctx.strokeStyle = L; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(3, 0); ctx.lineTo(-4, 5); ctx.stroke(); ctx.restore(); };
+  const valve = (x, y, open, rot = 0) => { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = BG; ctx.fillRect(-9, -9, 18, 18);
+    ctx.beginPath(); ctx.moveTo(-8, -6); ctx.lineTo(8, 6); ctx.lineTo(8, -6); ctx.lineTo(-8, 6); ctx.closePath(); ctx.fillStyle = open ? L : BG; ctx.fill(); ctx.strokeStyle = L; ctx.lineWidth = 1.2; ctx.stroke(); ctx.restore(); };
   const dot = (x, y, r = 3) => { ctx.fillStyle = L; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
   const label = (s, x, y, a = 'left', size = 15) => { ctx.fillStyle = L; ctx.font = `400 ${size}px Sora, system-ui, sans-serif`; ctx.textAlign = a; ctx.fillText(s, x, y); };
   const along = (pts, u) => { const seg = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); tot += d; }
@@ -85,7 +86,7 @@
       const ph = ((t / 12 - i / 4) % 1 + 1) % 1, s = ease(ph * 4 % 1), st = Math.floor(ph * 4);
       const [zf, load] = [[lerp(.08, .25, s), lerp(.2, 1, s)], [lerp(.25, .85, s), 1], [lerp(.85, .75, s), lerp(1, .55, s)], [lerp(.75, .08, s), lerp(.55, .2, s)]][st];
       const l = x - CW / 2, top = TOP - 32, h = BOT - TOP + 64;
-      ctx.save(); ctx.beginPath(); ctx.roundRect(l, top, CW, h, CW / 2); ctx.fillStyle = '#000'; ctx.fill(); ctx.clip();
+      ctx.save(); ctx.beginPath(); ctx.roundRect(l, top, CW, h, CW / 2); ctx.fillStyle = BG; ctx.fill(); ctx.clip();
       const yf = top + h - zf * h; ctx.fillStyle = tone(.12 + .7 * load); ctx.fillRect(l, yf, CW, top + h - yf); ctx.restore();
       ctx.strokeStyle = L; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.roundRect(l, top, CW, h, CW / 2); ctx.stroke();
       // valves: pressurisation opens the top, adsorption and purge both ends, blowdown the bottom
@@ -119,63 +120,80 @@
     });
   }
 
-  // ---------- 3. Economic optimum: prices move, the optimum follows
-  let trail = [];
-  function eco(t) {
-    const names = ['Electricity', 'Biomethane', 'CO₂'], kn = [0, 1, 2].map(i => .5 + .38 * Math.sin(t * (.33 + i * .11) + i * 2.1));
-    kn.forEach((v, i) => { const y = 225 + i * 95; label(names[i], 120, y - 20); ln(120, y, 360, y, 1.4); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(120 + 240 * v, y, 9, 0, 7); ctx.fill(); ctx.strokeStyle = L; ctx.lineWidth = 1.4; ctx.stroke(); dot(120 + 240 * v, y, 3); });
-    const bx = 470, by = 110, bw = 420, bh = 400; box(bx, by, bw, bh);
-    const ou = .5 + .32 * (kn[1] - kn[0]) + .1 * (kn[2] - .5), ov = .5 - .3 * (kn[2] - kn[0]) + .08 * (kn[1] - .5);
-    const X = bx + ou * bw, Y = by + ov * bh;
-    ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip();
-    for (let r = 1; r <= 9; r++) { ctx.strokeStyle = r % 3 ? F : L; ctx.lineWidth = r % 3 ? .9 : 1.2; ctx.beginPath(); ctx.ellipse(X, Y, r * 34, r * 22, -.45 + .3 * (kn[0] - .5), 0, 7); ctx.stroke(); }
-    trail.push([X, Y]); if (trail.length > 140) trail.shift();
-    if (trail.length > 1) poly(trail, 1, F);
-    ctx.restore();
-    ln(X - 14, Y, X + 14, Y, 1.4); ln(X, Y - 14, X, Y + 14, 1.4); dot(X, Y, 3.5);
-  }
-
-  // ---------- 4. RL, productivity: agent and column in a loop, learning curve rising
-  const agent = (x, y) => { const layers = [[-40, 3], [0, 4], [40, 2]], pts = layers.map(([dx, n]) => Array.from({ length: n }, (_, i) => [x + dx, y + (i - (n - 1) / 2) * 26]));
+  // ---------- shared pieces for 3 to 5
+  const ring = (x, y, r, w = 1.3) => { ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = L; ctx.lineWidth = w; ctx.stroke(); };
+  const arrowHead = (x, y, ang, s = 8) => { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = L; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * .7, -s * .6); ctx.lineTo(-s * .7, s * .6); ctx.closePath(); ctx.fill(); ctx.restore(); };
+  const prices = t => [0, 1, 2].map(i => .5 + .38 * Math.sin(t * (.33 + i * .11) + i * 2.1));
+  const sliderSet = (kn, names, x, y, w, gap) => kn.forEach((v, i) => { const yy = y + i * gap; label(names[i], x, yy - 16, 'left', 14); ln(x, yy, x + w, yy, 1.3, F); ring(x + w * v, yy, 8, 1.4); dot(x + w * v, yy, 2.8); });
+  // a small signal that keeps changing: a disturbance on the plant
+  const signal = (x, y, w, h, t, seed, name) => { label(name, x, y - 6, 'left', 12, F);
+    const pts = []; for (let u = 0; u <= 1.0001; u += .02) { const tt = t * .8 + u * 6 + seed * 3; pts.push([x + u * w, y + h / 2 - h * .42 * (.6 * Math.sin(tt * 1.3 + seed) + .4 * Math.sin(tt * 3.1 + seed * 2))]); }
+    poly(pts, 1.2); dot(...pts[pts.length - 1], 2.6); };
+  // the agent (a small network) and the plant (two connected columns), in a loop of state and action
+  function loop(t, ax, ay, ex, ey) {
+    const rA = 68, rE = 92;
+    ring(ax, ay, rA, 1.4);
+    const layers = [[-32, 3], [0, 4], [32, 2]], pts = layers.map(([dx, n]) => Array.from({ length: n }, (_, i) => [ax + dx, ay + (i - (n - 1) / 2) * 20]));
     for (let a = 0; a < 2; a++) pts[a].forEach(p => pts[a + 1].forEach(q => ln(p[0], p[1], q[0], q[1], .6, F)));
-    pts.flat().forEach(([px, py]) => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.fill(); ctx.strokeStyle = L; ctx.lineWidth = 1.2; ctx.stroke(); }); };
-  function rlp(t) {
-    const e = (t / 14) % 1, act = .5 + .45 * Math.sin(t * 2.2) * (1 - e) + .3 * e;
-    // column with feed valve
-    const cx = 200, top = 170, bot = 450; ctx.strokeStyle = L; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.roundRect(cx - 32, top, 64, bot - top, 32); ctx.stroke();
-    const lvl = .5 + .4 * Math.sin(t * 1.6); ctx.save(); ctx.beginPath(); ctx.roundRect(cx - 32, top, 64, bot - top, 32); ctx.clip(); ctx.fillStyle = tone(.55); ctx.fillRect(cx - 32, bot - lvl * (bot - top), 64, lvl * (bot - top)); ctx.restore();
-    pipes([[[cx, bot], [cx, 540]], [[cx, top], [cx, 90]]]); valve(cx, 500, act > .5, Math.PI / 2); chev(cx, 525, -Math.PI / 2);
-    agent(480, 310);
-    const sPath = [[cx + 40, 230], [440, 230], [440, 270]], aPath = [[520, 350], [520, 500], [cx + 14, 500]];
-    poly(sPath, 1.2); poly(aPath, 1.2); chev(440, 262, Math.PI / 2); chev(cx + 26, 500, Math.PI);
-    flow(sPath, t, 3, .4); flow(aPath, t + .5, 3, .4);
-    const bx = 640, by = 150, bw = 260, bh = 300; ln(bx, by, bx, by + bh, 1.2); ln(bx, by + bh, bx + bw, by + bh, 1.2); label('Productivity', bx, by - 14, 'left', 14);
-    const pts = []; for (let u = 0; u <= e; u += .005) { const r = (1 - Math.exp(-4 * u)) * .85 + .05 * Math.sin(u * 90) * Math.exp(-3 * u); pts.push([bx + u * bw, by + bh - (.05 + r) * bh]); }
-    if (pts.length > 1) { poly(pts, 1.6); dot(...pts[pts.length - 1], 3.5); }
+    pts.flat().forEach(([x, y]) => ring(x, y, 4.5, 1.1));
+    ring(ex, ey, rE, 1.4);
+    const cols = [ex - 26, ex + 26], top = ey - 52, bot = ey + 52;
+    ctx.strokeStyle = L; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cols[0], top - 10); ctx.lineTo(cols[0], top - 18); ctx.lineTo(cols[1], top - 18); ctx.lineTo(cols[1], top - 10); ctx.moveTo(cols[0], bot + 10); ctx.lineTo(cols[0], bot + 18); ctx.lineTo(cols[1], bot + 18); ctx.lineTo(cols[1], bot + 10); ctx.stroke();
+    cols.forEach((x, i) => { const lv = .5 + .38 * Math.sin(t * 1.3 + i * Math.PI);
+      ctx.save(); ctx.beginPath(); ctx.roundRect(x - 15, top - 10, 30, bot - top + 20, 15); ctx.fillStyle = BG; ctx.fill(); ctx.clip(); ctx.fillStyle = tone(.5); ctx.fillRect(x - 15, bot + 10 - lv * (bot - top + 20), 30, lv * (bot - top + 20)); ctx.restore();
+      ctx.strokeStyle = L; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.roundRect(x - 15, top - 10, 30, bot - top + 20, 15); ctx.stroke(); });
+    // state goes up on the left, the action comes down on the right
+    const arc = (side, up, ph) => { const pts = []; for (let u = 0; u <= 1; u += .02) { const y = lerp(up ? ey - rE - 4 : ay + rA + 4, up ? ay + rA + 4 : ey - rE - 4, u), x = ax + side * (60 + 46 * Math.sin(Math.PI * u)); pts.push([x, y]); }
+      poly(pts, 1.3); const k = Math.floor(((t * .35 + ph) % 1) * (pts.length - 1)); for (let m = 0; m < 2; m++) { const q = pts[(k + m * 25) % pts.length]; dot(q[0], q[1], 3); }
+      const e = pts[pts.length - 1], b = pts[pts.length - 3]; arrowHead(e[0], e[1], Math.atan2(e[1] - b[1], e[0] - b[0])); };
+    arc(-1, true, 0); arc(1, false, .5);
+    label('state', ax - 120, (ay + ey) / 2 + 5, 'right', 13, F); label('action', ax + 120, (ay + ey) / 2 + 5, 'left', 13, F);
+  }
+  // training: faint runs behind, the current one climbing
+  function learning(t, bx, by, bw, bh, name, period) {
+    const e = (t / period) % 1; ln(bx, by + bh, bx + bw, by + bh, 1.2); ln(bx, by, bx, by + bh, 1.2);
+    label(name, bx + 10, by + 4, 'left', 14, F); label('Training episodes', bx + bw, by + bh + 26, 'right', 13, F);
+    const curve = (u, s) => (1 - Math.exp(-(3 + s * 2) * u)) * (.72 + .18 * s) + .045 * Math.sin(u * (60 + s * 40) + s * 9) * Math.exp(-1.5 * u);
+    for (let k = 0; k < 8; k++) { const s = ((k * .37) % 1), g = []; for (let u = 0; u <= 1; u += .01) g.push([bx + u * bw, by + bh - (.05 + curve(u, s)) * bh]); poly(g, 1, tone(.16)); }
+    const g = []; for (let u = 0; u <= e; u += .004) g.push([bx + u * bw, by + bh - (.05 + curve(u, .8)) * bh]);
+    if (g.length > 1) { poly(g, 2); const [X, Y] = g[g.length - 1]; ring(X, Y, 7, 1.4); dot(X, Y, 2.8); }
   }
 
-  // ---------- 5. RL, profit: price signal and plant load, the agent learns to follow it
+  // ---------- 3. Economic optimum: the prices move, and the peak of the profit surface moves with them
+  function eco(t) {
+    const kn = prices(t); sliderSet(kn, ['Electricity', 'Biomethane', 'CO₂'], 70, 220, 190, 100);
+    const px = .5 + .32 * (kn[1] - kn[0]), py = .5 - .3 * (kn[2] - kn[0]);
+    const n = 24, cx = 640, cy = 340, sx = 250, sy = 125, hz = 200, rot = .55 + .12 * Math.sin(t * .2);
+    const P = (u, v) => { const a = u - .5, b = v - .5, x = a * Math.cos(rot) - b * Math.sin(rot), y = a * Math.sin(rot) + b * Math.cos(rot);
+      const z = .9 * Math.exp(-(((u - px) ** 2) + ((v - py) ** 2)) / .045) + .1 * Math.sin(u * 7) * Math.cos(v * 6);
+      return [cx + x * sx * 2, cy + y * sy * 2 - z * hz, z]; };
+    for (let i = 0; i <= n; i++) { const a = [], b = []; for (let j = 0; j <= n; j++) { a.push(P(i / n, j / n)); b.push(P(j / n, i / n)); }
+      [a, b].forEach(line => { for (let k = 1; k < line.length; k++) ln(line[k - 1][0], line[k - 1][1], line[k][0], line[k][1], 1, tone(.2 + .6 * Math.max(line[k][2], 0))); }); }
+    const [X, Y] = P(px, py); ln(X, Y, X, Y - 64, 1.3); ring(X, Y - 72, 8, 1.4); dot(X, Y - 72, 3); dot(X, Y, 3.5);
+    label('Profit', 860, 120, 'left', 14, F);
+  }
+
+  // ---------- 4. RL, productivity: the agent runs two columns while the feed composition changes
+  function rlp(t) {
+    loop(t, 250, 170, 250, 435);
+    signal(40, 520, 110, 44, t, 1, 'Feed composition'); poly([[150, 542], [175, 542], [175, 470], [158, 470]], 1.2, F); arrowHead(160, 470, Math.PI, 6);
+    learning(t, 540, 110, 410, 390, 'Productivity', 14);
+  }
+
+  // ---------- 5. RL, profit: the same, rewarded by profit, with more that changes around the plant
   function rle(t) {
-    const e = (t / 16) % 1, price = x => .5 + .28 * Math.sin(x * 2.3) + .14 * Math.sin(x * 5.1 + 1);
-    const bx = 120, bw = 760, s1 = 120, s2 = 330, sh = 150, span = 6;
-    label('Electricity price', bx, s1 - 16, 'left', 14); label('Plant load', bx, s2 - 16, 'left', 14);
-    ln(bx, s1 + sh, bx + bw, s1 + sh, 1, F); ln(bx, s2 + sh, bx + bw, s2 + sh, 1, F);
-    const P = [], Ld = [];
-    for (let x = 0; x <= bw; x += 4) { const tt = t * .6 - span + span * x / bw, pr = price(tt);
-      const learned = Math.min(1, e * 1.4), load = (1 - learned) * (.55 + .25 * Math.sin(tt * 3.7)) + learned * (1 - pr * .9);
-      P.push([bx + x, s1 + sh - pr * sh]); Ld.push([bx + x, s2 + sh - Math.max(.05, Math.min(.95, load)) * sh]); }
-    poly(P, 1.4); poly(Ld, 1.8);
-    // shade the energy bought at high prices
-    for (let i = 0; i < P.length; i += 2) { const pr = (s1 + sh - P[i][1]) / sh; if (pr > .62) ln(P[i][0], s2 + sh, P[i][0], Ld[i][1], .8, F); }
-    dot(...P[P.length - 1], 3.5); dot(...Ld[Ld.length - 1], 3.5);
-    agent(940, 310);
+    loop(t, 330, 170, 330, 435);
+    const names = ['Feed temperature', 'Ambient temperature', 'Prices', 'Feed composition', 'Feed flow'];
+    names.forEach((nm, k) => signal(30, 250 + k * 64, 120, 30, t, k + 2, nm));
+    poly([[160, 265], [190, 265], [190, 520], [160, 520]], 1, F); poly([[190, 435], [230, 435]], 1.2, F); arrowHead(232, 435, 0, 6);
+    learning(t, 570, 110, 390, 390, 'Profit', 16);
   }
 
   const DRAW = { psa, smb, eco, rlp, rle };
   const still = matchMedia('(prefers-reduced-motion: reduce)');
   let clock = 4, t0 = 0, last = performance.now(), seen = true;
   new IntersectionObserver(es => seen = es[0].isIntersecting).observe(cv);
-  function draw() { const key = WORKS[current].key; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); place(key); ctx.lineCap = key === 'smb' ? 'butt' : 'round'; DRAW[key](still.matches ? 6 : clock); }
+  function draw() { themeColours(); const key = WORKS[current].key; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); place(key); ctx.lineCap = key === 'smb' ? 'butt' : 'round'; DRAW[key](still.matches ? 6 : clock); }
   function frame(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; clock += dt; if (seen) draw(); requestAnimationFrame(frame); }
   new ResizeObserver(() => { fit(); draw(); }).observe(cv);
   fit(); select(0); requestAnimationFrame(frame);

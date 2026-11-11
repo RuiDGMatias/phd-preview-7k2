@@ -5,6 +5,7 @@
   const cv = document.getElementById('hero-flow'); if (!cv) return;
   const MODE = cv.dataset.symbol || 'cycle';
   let ctx, W, H, cx, cy, S;
+  const INK = () => document.documentElement.dataset.theme === 'light' ? '17,17,17' : '255,255,255';
   function fit() {
     const d = Math.min(devicePixelRatio || 1, 2), r = cv.getBoundingClientRect();
     W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx = cv.getContext('2d'); ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -22,11 +23,11 @@
   function polyline(pts, w, a0 = 1) {
     for (let i = 1; i < pts.length; i++) {
       const p = P(pts[i - 1]), q = P(pts[i]);
-      ctx.strokeStyle = `rgba(255,255,255,${(a0 * alphaAt((p[2] + q[2]) / 2)).toFixed(3)})`; ctx.lineWidth = w;
+      ctx.strokeStyle = `rgba(${INK()},${(a0 * alphaAt((p[2] + q[2]) / 2)).toFixed(3)})`; ctx.lineWidth = w;
       ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
     }
   }
-  const dot = (pt, r) => { const p = P(pt); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill(); };
+  const dot = (pt, r) => { const p = P(pt); ctx.fillStyle = `rgb(${INK()})`; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill(); };
 
   // ---------- 1. Limit cycle (Hopf normal form with a twisted orbit)
   const zOrbit = th => .38 * Math.sin(2 * th);
