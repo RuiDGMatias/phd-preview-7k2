@@ -51,6 +51,11 @@
   .seg { display:inline-flex; flex-wrap:wrap; border:1px solid var(--ink); border-radius:16px; overflow:hidden; }
   .seg button { background:none; border:0; padding:5px 11px; font-size:13px; cursor:pointer; }
   #pers button { padding:5px 9px; }
+  .ph input[type=range] { width: 130px; accent-color: var(--ink); }
+  .ph input.pn { width: 52px; font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); text-align: right; padding: 1px 0; }
+  .ph .tt { opacity: .8; }
+  .ph .ap { margin-left: auto; border: 0; background: none; padding: 0; cursor: pointer; font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; color: var(--ink); }
+
   .seg button.on { background:var(--ink); color:var(--paper); }
   select { font:inherit; font-size:13px; color:var(--ink); background:transparent; border:0; border-bottom:1px solid var(--rule); padding:4px 0; width:100%; }
   select option { background:var(--side); color:var(--ink); }
@@ -125,6 +130,7 @@
   main { background:var(--paper); border:1px solid var(--panelline); border-radius:18px; padding:16px 20px 12px; min-height:0; }
   .head h1 { font-size:15px; }
   .side select option { background:var(--paper); }
+  .js-plotly-plot:fullscreen { background: var(--paper); }
   main:fullscreen { border-radius:0; border:0; padding:26px 30px 18px; }
   @media (max-width:900px) { .top { grid-template-columns:1fr; } .shell { height:auto; } }
 </style>
@@ -219,7 +225,7 @@ function applyTheme() {
     series: light ? SERIES.light : SERIES.dark, zone: ['--z1','--z2','--z3','--z4'].map(v => cs.getPropertyValue(v).trim()) });
   $('theme').textContent = light ? 'Dark mode' : 'Light mode';
 }
-const gasColour = g => (STYLE.gas[(TH.light ? 'l_' : 'd_') + g]) || (GAS_DEFAULT[TH.light ? 'light' : 'dark'][g]) || TH.series[(COMPS.indexOf(g) + 3) % 8];
+const gasColour = g => (STYLE.gas[(TH.light ? 'l_' : 'd_') + g]) || (GAS_DEFAULT[TH.light ? 'light' : 'dark'][g]) || ({ Tg_K: TH.series[1], Ts_K: TH.series[3], Tw_K: TH.series[0] })[g] || TH.series[(COMPS.indexOf(g) + 3) % 8];
 applyTheme();
 $('theme').addEventListener('click', () => {
   const t = TH.light ? 'dark' : 'light'; document.documentElement.dataset.theme = t;
@@ -392,11 +398,15 @@ function lineStyle(k, nSel, g, nSeries) {
 
 // ---------------------------------------------------------------- variables
 const PER_GAS = { y: ['y, mole fraction', '-'], C: ['C, gas concentration', 'mol/m³'], Cp: ['C<sub>p</sub>, in the macropores', 'mol/m³'], q: ['q, adsorbed amount', 'mol/kg'], qeq: ['q<sub>eq</sub>, in equilibrium', 'mol/kg'] };
-const SINGLE = { P_bar: ['P, pressure', 'bar'], Tg_K: ['T<sub>g</sub>, gas', 'K'], Ts_K: ['T<sub>s</sub>, solid', 'K'], Tw_K: ['T<sub>w</sub>, wall', 'K'], u_m_s: ['u, superficial velocity', 'm/s'] };
+const TMEM = { Tg_K: 'gas', Ts_K: 'solid', Tw_K: 'wall' };
+const SINGLE = { P_bar: ['P, pressure', 'bar'], T: ['T, temperature', 'K'], u_m_s: ['u, superficial velocity', 'm/s'] };
 const isGasVar = v => v in PER_GAS;
+const isMulti = v => isGasVar(v) || v === 'T';
+const members = v => v === 'T' ? Object.keys(TMEM).filter(k => (S.temps || new Set(['Tg_K'])).has(k)) : COMPS.filter(g => S.gases.has(g));
+const memLabel = g => TMEM[g] || g;
 const varLabel = v => (PER_GAS[v] || SINGLE[v])[0].replace(/<[^>]+>/g, '');
 const varUnit = v => (PER_GAS[v] || SINGLE[v])[1];
-const sheetOf = (v, g) => isGasVar(v) ? `${v}_${g}` : v;
+const sheetOf = (v, g) => v === 'T' ? g : isGasVar(v) ? `${v}_${g}` : v;
 async function colSheet(c, v, g, R = RUN) { return R.col[c].table(sheetOf(v, g)); }
 // values of a variable in a column: matrix rows = times, cols = cells
 async function matrix(c, v, g, R = RUN) { const tb = await colSheet(c, v, g, R); const k = tb.head.indexOf('zone') + 1; return tb.rows.map(r => r.slice(k)); }
@@ -434,7 +444,7 @@ function buildControls() {
   if (RUN.hasCols) { $('tslider').max = RUN.t.length - 1; S.frame = Math.min(S.frame, RUN.t.length - 1); $('tslider').value = S.frame; }
 }
 function buildVars() {
-  const lite = !RUN.hasCols && S.view === 'outlets', vs = RUN.hasCols ? [...Object.keys(PER_GAS), ...Object.keys(SINGLE)] : lite ? Object.keys(LITE).filter(k => k === 'y' || RUN.book.has(k)) : ['y'];
+  const lite = !RUN.hasCols && S.view === 'outlets', vs = RUN.hasCols ? [...Object.keys(PER_GAS), 'P_bar', 'T', 'u_m_s'] : lite ? Object.keys(LITE).filter(k => k === 'y' || RUN.book.has(k)) : ['y'];
   if (!vs.includes(S.variable)) S.variable = 'y';
   const lab = v => (lite ? LITE[v] : (PER_GAS[v] || SINGLE[v]));
   $('vars').innerHTML = vs.map(v => `<label class="row"><span><input type="radio" name="var" value="${v}" ${v === S.variable ? 'checked' : ''}> ${lab(v)[0]}</span><span class="u">${lab(v)[1]}</span></label>`).join('');
@@ -453,6 +463,13 @@ function placeMarker() { if (!RUN || !RUN.hasCols) return; const zs = RUN.colInf
   $('marker').setAttribute('transform', `translate(${x},0)`); $('zlab').textContent = `z = ${S.pos === 'in' ? 0 : S.pos === 'out' ? fmt(RUN.L * 1e3, 3) : fmt(z * 1e3, 3)}`; }
 function buildGases() {
   if (!S.gases) S.gases = new Set(COMPS);
+  if (!S.temps) S.temps = new Set(['Tg_K']);
+  const T_ = S.variable === 'T', list = T_ ? Object.keys(TMEM) : COMPS, on = T_ ? S.temps : S.gases;
+  $('box-gas').querySelector('h4').firstChild.textContent = T_ ? 'Temperatures ' : 'Gases ';
+  $('gases').innerHTML = list.map(g => `<div class="gas"><input type="color" data-g="${g}" value="${gasColour(g)}" aria-label="colour of ${memLabel(g)}"><label><span><input type="checkbox" data-g="${g}" ${on.has(g) ? 'checked' : ''}> ${T_ ? memLabel(g) : g.replace(/(\d)/g, '<sub>$1</sub>')}</span></label></div>`).join('');
+  $('gases').querySelectorAll('input[type=checkbox]').forEach(i => i.addEventListener('change', () => { i.checked ? on.add(i.dataset.g) : on.size > 1 ? on.delete(i.dataset.g) : (i.checked = true); refresh(); }));
+  $('gases').querySelectorAll('input[type=color]').forEach(i => i.addEventListener('input', () => { STYLE.gas[(TH.light ? 'l_' : 'd_') + i.dataset.g] = i.value; saveStyle(); refresh(); }));
+  return;
   $('gases').innerHTML = COMPS.map(g => `<div class="gas"><input type="color" data-g="${g}" value="${gasColour(g)}" aria-label="colour of ${g}"><label><span><input type="checkbox" data-g="${g}" ${S.gases.has(g) ? 'checked' : ''}> ${g.replace(/(\d)/g, '<sub>$1</sub>')}</span></label></div>`).join('');
   $('gases').querySelectorAll('input[type=checkbox]').forEach(i => i.addEventListener('change', () => { i.checked ? S.gases.add(i.dataset.g) : S.gases.delete(i.dataset.g); refresh(); }));
   $('gases').querySelectorAll('input[type=color]').forEach(i => i.addEventListener('input', () => { STYLE.gas[(TH.light ? 'l_' : 'd_') + i.dataset.g] = i.value; saveStyle(); refresh(); }));
@@ -465,7 +482,14 @@ const gsub = g => g.replace(/(\d)/g, '<sub>$1</sub>');
 function axis(title, extra = {}) { return Object.assign({ title: { text: title, font: { size: 13 } }, gridcolor: TH.grid, zeroline: false, linecolor: TH.axis, ticks: 'outside', tickcolor: TH.axis, tickfont: { size: 11 }, mirror: true, showline: true }, extra); }
 function layout(o = {}) { return Object.assign({ paper_bgcolor: TH.paper, plot_bgcolor: TH.paper, font: { family: 'Sora, Segoe UI, Arial, sans-serif', color: TH.ink, size: 12 },
   margin: { l: 66, r: 20, t: 18, b: 48 }, legend: { orientation: 'h', x: 0, y: 1.02, yanchor: 'bottom', font: { size: 12 } }, hoverlabel: { font: { family: 'Sora' } }, hovermode: 'x unified' }, o); }
-const CONF = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { format: 'png', scale: 3, filename: 'smb' } };
+// every plot can go to full screen on its own, from a button in its toolbar
+const FSBTN = { name: 'fullscreen', title: 'Full screen', icon: { width: 1000, height: 1000, path: 'M0 0h400v100H100v300H0zM600 0h400v400H900V100H600zM0 600h100v300h300v100H0zM900 600h100v400H600V900h300z', transform: 'matrix(1 0 0 -1 0 1000)' },
+  click: gd => { document.fullscreenElement ? document.exitFullscreen() : gd.requestFullscreen && gd.requestFullscreen(); } };
+document.addEventListener('fullscreenchange', () => setTimeout(() => { const el = document.fullscreenElement;
+  if (el && el.dataset && el.dataset.fst) Plotly.relayout(el, { 'title.text': el.dataset.fst, 'title.x': 0.02, 'title.font.size': 16, 'xaxis.title.text': el.dataset.fsx, 'yaxis.title.text': el.dataset.fsy, 'margin.t': 56, 'margin.b': 64, 'margin.l': 76, 'margin.r': 30 });
+  else if (!el && typeof redrawPanels === 'function') redrawPanels();
+  document.querySelectorAll('.js-plotly-plot').forEach(p => { if (p.offsetParent || p === el) Plotly.Plots.resize(p); }); }, 120));
+const CONF = { responsive: true, displaylogo: false, modeBarButtonsToAdd: [FSBTN], modeBarButtonsToRemove: ['lasso2d', 'select2d'], toImageButtonOptions: { format: 'png', scale: 3, filename: 'smb' } };
 let CSV = null;      // rows of the current view, for the export
 function draw(traces, lay) { $('plot').hidden = false; Plotly.react('plot', traces, layout(lay), CONF); }
 function zoneBands(col) {           // the zone of a column in each period, drawn above the plot on the time axis
@@ -491,7 +515,7 @@ async function refresh() {
   document.querySelectorAll('#pers button').forEach(b => b.classList.toggle('on', S.perSel.has(+b.dataset.k)));
   const v = S.view, anim_ = v === 'profiles' && S.pmode === 'animated', stat = v === 'profiles' && S.pmode === 'static', vis = (id, on) => $(id).hidden = !on;
   $('tabs').hidden = false; $('fs').hidden = false; vis('box-mode', v === 'profiles'); vis('box-var', (v === 'profiles' && RUN.hasCols) || v === 'outlets');
-  vis('box-gas', ['profiles', 'outlets'].includes(v) && (isGasVar(S.variable) || (!RUN.hasCols && S.variable === 'y')));
+  vis('box-gas', ['profiles', 'outlets'].includes(v) && (isMulti(S.variable) || (!RUN.hasCols && S.variable === 'y'))); buildGases();
   vis('box-pos', v === 'outlets' && RUN.hasCols);
   vis('box-per', stat && RUN.hasCols); vis('box-cyc', ['profiles', 'outlets'].includes(v) && RUN.hasCols && cycleRuns().length > 1); vis('box-kpi', v === 'cycles');
   vis('box-style', v !== 'summary'); vis('box-exp', true);
@@ -523,7 +547,7 @@ async function viewOutlets() {
     CSV = [['t_s', ...keys], ...t.map((x, i) => [x, ...keys.map(k => tb.col(k)[i])])];
     draw(traces, { xaxis: axis('time in the cycle (s)'), yaxis: axis(S.variable === 'P_outlet' ? 'P (bar)' : 'T (K)'), showlegend: true }); return;
   }
-  const v = S.variable, cols = COLS.filter(c => S.colSel.has(c)), all = cols.length > 1, runs = await selectedRuns(), series = isGasVar(v) ? gases : [null];
+  const v = S.variable, cols = COLS.filter(c => S.colSel.has(c)), all = cols.length > 1, runs = await selectedRuns(), series = isMulti(v) ? members(v) : [null];
   const zz = (v === 'u_m_s' ? RUN.colInfo[COLS[0]].zf : RUN.colInfo[COLS[0]].z), j = S.pos === 'in' ? 0 : S.pos === 'out' ? zz.length - 1 : Math.min(S.zi, zz.length - 1);
   const where = S.pos === 'in' ? 'at the inlet of' : S.pos === 'out' ? 'at the outlet of' : `at z = ${fmt(zz[j] * 1e3, 3)} mm in`;
   $('title').innerHTML = `History of ${varLabel(v)} ${where} ${cols.length === COLS.length ? 'every column' : cols.join(', ')}${runs.length > 1 ? ', cycles ' + runs.map(R => R.cycleNo).join(', ') : ''}`;
@@ -531,7 +555,7 @@ async function viewOutlets() {
   for (const [k, [R, c]] of sels.entries()) for (const g of series) {
     const M = await matrix(c, v, g, R), y = M.map(r => r[j]), st = lineStyle(k, nSel, g, series.length);
     const tag = [runs.length > 1 ? 'cycle ' + R.cycleNo : '', all ? c : ''].filter(Boolean).join(' ');
-    traces.push({ x: R.t, y, name: [tag, (g && (series.length > 1 || nSel === 1)) ? g : (nSel === 1 ? varLabel(v) : '')].filter(Boolean).join(' '), mode: 'lines', line: { color: st.color, width: lw, dash: st.dash } });
+    traces.push({ x: R.t, y, name: [tag, (g && (series.length > 1 || nSel === 1)) ? memLabel(g) : (nSel === 1 ? varLabel(v) : '')].filter(Boolean).join(' '), mode: 'lines', line: { color: st.color, width: lw, dash: st.dash } });
     CSV[0].push(`${runs.length > 1 ? 'cycle' + R.cycleNo + '_' : ''}${c}_${sheetOf(v, g)}`); ys.push(y);
   }
   CSV.push(...RUN.t.map((t, i) => [t, ...ys.map(y => y[i])]));
@@ -555,18 +579,23 @@ function nearestRow(period, frac, R = RUN) {
   return best;
 }
 let LEG6 = [];
+function redrawPanels() { if (RUN && S.view === 'profiles' && S.pmode === 'static') viewProfiles(); }
 const PCT_OPTS = Array.from({ length: 21 }, (_, k) => k * 5);
 async function viewProfiles() {
-  const gases = COMPS.filter(g => S.gases.has(g)), lw = STYLE.lw, v = RUN.hasCols ? S.variable : 'y', series = isGasVar(v) ? gases : [null];
+  const lw = STYLE.lw, v = RUN.hasCols ? S.variable : 'y', series = isMulti(v) ? members(v) : [null];
   const opts = RUN.hasCols ? PCT_OPTS : Object.keys(RUN.profiles).map(Number).sort((a, b) => a - b);
-  S.fracs = S.fracs.map((f, k) => opts.includes(f) ? f : opts[Math.min(k, opts.length - 1)]);
+  if (!RUN.hasCols) S.fracs = S.fracs.map((f, k) => opts.includes(f) ? f : opts[Math.min(k, opts.length - 1)]);
   const runs = RUN.hasCols ? await selectedRuns() : [RUN], pers = [...S.perSel].sort((a, b) => a - b), sels = RUN.hasCols ? runs.flatMap(R => pers.map(k => [R, k])) : [[RUN, null]], nSel = sels.length;
   const selName = ([R, k]) => [runs.length > 1 ? 'cycle ' + R.cycleNo : '', pers.length > 1 ? 'period ' + k : ''].filter(Boolean).join(', ');
   $('title').innerHTML = `Profiles of ${varLabel(v)} along the unit${RUN.hasCols ? (pers.length === 1 ? ', period ' + pers[0] : ', periods ' + pers.join(', ')) + (runs.length > 1 ? ', cycles ' + runs.map(R => R.cycleNo).join(', ') : '') : ''}`;
   const six = $('six');
-  if (six.children.length !== 6) six.innerHTML = Array.from({ length: 6 }, (_, k) => `<div><div class="ph"><select data-k="${k}" aria-label="fraction of t* of panel ${k + 1}"></select> of t*</div><div class="pp" id="pp${k}"></div></div>`).join('');
-  six.querySelectorAll('select').forEach(sel => { const k = +sel.dataset.k; sel.innerHTML = opts.map(o => `<option value="${o}" ${o === S.fracs[k] ? 'selected' : ''}>${o} %</option>`).join('');
-    sel.onchange = () => { S.fracs[k] = +sel.value; refresh(); }; });
+  if (six.children.length !== 6) six.innerHTML = Array.from({ length: 6 }, (_, k) => `<div><div class="ph"><input type="range" min="0" max="100" step="5" data-k="${k}" aria-label="fraction of t* of panel ${k + 1}"><input class="pn" type="number" min="0" max="100" step="any" data-k="${k}" aria-label="fraction of t*, typed"> % of t* <span class="tt"></span><button class="ap" type="button" data-k="${k}">Apply to all</button></div><div class="pp" id="pp${k}"></div></div>`).join('');
+  const snap = f => RUN.hasCols ? Math.min(100, Math.max(0, f)) : opts.reduce((a, o) => Math.abs(o - f) < Math.abs(a - f) ? o : a, opts[0]);
+  six.querySelectorAll('.ph').forEach((ph, k) => { const rg = ph.querySelector('input[type=range]'), nb = ph.querySelector('.pn');
+    rg.value = S.fracs[k]; if (document.activeElement !== nb) nb.value = +(+S.fracs[k]).toFixed(2); ph.querySelector('.tt').textContent = RUN.tsw ? `(${fmt(S.fracs[k] / 100 * RUN.tsw, 3)} s)` : '';
+    rg.oninput = () => { S.fracs[k] = snap(+rg.value); nb.value = S.fracs[k]; clearTimeout(rg._t); rg._t = setTimeout(refresh, 90); };
+    nb.onchange = () => { const f = +nb.value; if (isFinite(f)) { S.fracs[k] = snap(f); refresh(); } };
+    ph.querySelector('.ap').onclick = () => { S.fracs = S.fracs.map(() => S.fracs[k]); refresh(); }; });
   // one range for all six, so that they compare at a glance
   const data = [];
   for (const f of S.fracs) {
@@ -581,13 +610,14 @@ async function viewProfiles() {
   CSV = {};
   data.forEach((d, k) => {
     const traces = d.lab.map(([sel, g], n) => { const st = lineStyle(sels.indexOf(sel), nSel, g, series.length);
-      return { x: d.xs, y: d.ys[n], mode: 'lines', name: [selName(sel), (g && (series.length > 1 || nSel === 1)) ? g : (nSel === 1 ? varLabel(v) : '')].filter(Boolean).join(' '), line: { color: st.color, width: lw, dash: st.dash } }; });
+      return { x: d.xs, y: d.ys[n], mode: 'lines', name: [selName(sel), (g && (series.length > 1 || nSel === 1)) ? memLabel(g) : (nSel === 1 ? varLabel(v) : '')].filter(Boolean).join(' '), line: { color: st.color, width: lw, dash: st.dash } }; });
     const shapes = Array.from({ length: RUN.N - 1 }, (_, c) => ({ type: 'line', x0: c + 1, x1: c + 1, yref: 'paper', y0: 0, y1: 1, line: { color: TH.axis, width: 1, dash: 'dash' } }));
     const names = d.order ? d.order.map(o => o[1]) : (RUN.hasCols ? COLS.map((_, c) => 'position ' + (c + 1)) : COLS);
+    Object.assign($('pp' + k).dataset, { fst: `${d.f} % of t*`, fsx: 'position along the unit (columns)', fsy: `${varLabel(v)} (${varUnit(v)})` });
     Plotly.react('pp' + k, traces, layout({ margin: { l: 52, r: 10, t: 12, b: 26 }, showlegend: false, hovermode: 'x unified', shapes,
       xaxis: axis('', { range: [0, RUN.N], tickvals: names.map((_, c) => c + .5), ticktext: names, showgrid: false }), yaxis: axis(k % 2 ? '' : `${varLabel(v).split(',')[0]} (${varUnit(v)})`, { range: [lo, hi], nticks: 5 }) }), CONF);
     if (k === 0) { const dz = { solid: '', dot: '2 3', dash: '7 4', longdash: '13 5', dashdot: '7 3 2 3', longdashdot: '13 4 2 4' };
-      const ents = nSel > 1 && series.length > 1 ? [...series.map(g => ({ name: g, line: { color: gasColour(g), dash: 'solid' } })), ...sels.map((sel, n) => ({ name: selName(sel), line: { color: TH.ink, dash: DASH[n % 8] } }))] : traces;
+      const ents = nSel > 1 && series.length > 1 ? [...series.map(g => ({ name: memLabel(g), line: { color: gasColour(g), dash: 'solid' } })), ...sels.map((sel, n) => ({ name: selName(sel), line: { color: TH.ink, dash: DASH[n % 8] } }))] : traces;
       LEG6 = ents; $('sixleg').innerHTML = ents.map(t => `<span><svg width="26" height="8"><line x1="1" y1="4" x2="25" y2="4" stroke="${t.line.color}" stroke-width="2" stroke-dasharray="${dz[t.line.dash] || ''}"/></svg>${t.name}</span>`).join(''); }
     CSV[`${d.f} % of t*`] = [['x_columns', ...d.lab.map(([sel, g]) => [selName(sel).replace(/, /g, '_').replace(/ /g, ''), sheetOf(v, g)].filter(Boolean).join('_'))], ...d.xs.map((x, j) => [x, ...d.ys.map(y => y[j])])];
   });
@@ -726,7 +756,7 @@ addEventListener('resize', () => { if (S.view === 'summary' && RUN) drawScheme(S
 const cv = $('unit'); let ctx, CW, CH, anim = null, RANGE = null, FRAMECACHE = {};
 function fitCanvas(w, h) { const d = Math.min(devicePixelRatio || 1, 2), r = cv.getBoundingClientRect(); CW = w || r.width; CH = h || r.height; cv.width = CW * d; cv.height = CH * d; ctx = cv.getContext('2d'); ctx.setTransform(d, 0, 0, d, 0, 0); }
 async function viewUnit() {
-  const v = S.variable, gases = isGasVar(v) ? COMPS.filter(g => S.gases.has(g)) : [null];
+  const v = S.variable, gases = isMulti(v) ? members(v) : [null];
   $('title').innerHTML = `Profiles of ${varLabel(v)} along the unit`;
   // the range over the whole cycle, so that the axis stays still while it plays
   let lo = Infinity, hi = -Infinity; const mats = {}, runs = await selectedRuns();
@@ -778,7 +808,7 @@ function drawFrame(i, w, h, c2) {
   C.textAlign = 'left'; let lx = ml; C.font = '13px Sora, Segoe UI, sans-serif';
   const leg = (label, color, dash) => { C.strokeStyle = color; C.lineWidth = 2.2; C.setLineDash(CDASH[dash] || []); C.beginPath(); C.moveTo(lx, H - 14); C.lineTo(lx + 22, H - 14); C.stroke(); C.setLineDash([]);
     C.fillStyle = TH.ink; C.fillText(label, lx + 28, H - 13); lx += 50 + C.measureText(label).width; };
-  if (gases[0] && (nSel === 1 || gases.length > 1)) gases.forEach(g => leg(g, gasColour(g), 'solid'));
+  if (gases[0] && (nSel === 1 || gases.length > 1)) gases.forEach(g => leg(memLabel(g), gasColour(g), 'solid'));
   if (nSel > 1) runs.forEach((R, n) => { const st = lineStyle(n, nSel, gases[0], gases.length); leg('cycle ' + R.cycleNo, gases.length > 1 ? TH.ink : st.color, st.dash); });
   if (c2) { C.textAlign = 'right'; C.fillStyle = TH.ink;
     C.fillText(`t = ${RUN.t[i].toFixed(1)} s, period ${RUN.per[i]} of ${N}, ${Math.round(100 * RUN.tp[i] / RUN.tsw)} % of t*`, W - mr, H - 13); }

@@ -224,6 +224,13 @@
   .six .ph { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .six .ph select { font: inherit; font-weight: 500; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: 1px 0; }
   .six .pp { flex: 1; min-height: 0; }
+  .ph input[type=range] { width: 80px; accent-color: var(--ink); }
+  .six .ph { white-space: nowrap; gap: 6px; font-size: 12.5px; }
+  .six .ph select { max-width: 120px; }
+  .ph input.pn { width: 52px; font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); text-align: right; padding: 1px 0; }
+  .ph .tt { opacity: .8; }
+  .ph .ap { margin-left: auto; border: 0; background: none; padding: 0; cursor: pointer; font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; color: var(--ink); }
+
   .sixleg { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; padding-bottom: 6px; }
   .sixleg span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .kpibig { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px 26px; border-bottom: 1px solid var(--rule-2); padding-bottom: 18px; margin-bottom: 22px; }
@@ -1053,10 +1060,15 @@ const stepList = () => { const seen = new Set(), out = []; for (const r of recs(
 function at(r, pct, f) { const target = pct / 100 * r.dur; let i = 0; r.t.forEach((t, k) => { if (Math.abs(t - target) < Math.abs(r.t[i] - target)) i = k; }); return { i, y: Array.from(r.f[f][i]) }; }
 function drawStatic() {
   const vars = selVars(), f = vars[0], six = $('six'), steps = stepList(), cols = COLS.filter(c => S.pcols.has(c)), cycs = cycSorted();
-  if (six.children.length !== 6) six.innerHTML = Array.from({ length: 6 }, (_, k) => `<div><div class="ph"><select data-k="${k}" data-w="s"></select><select data-k="${k}" data-w="p"></select></div><div class="pp" id="pp${k}"></div></div>`).join('');
+  if (six.children.length !== 6) six.innerHTML = Array.from({ length: 6 }, (_, k) => `<div><div class="ph"><select data-k="${k}" data-w="s"></select><input type="range" min="0" max="100" step="5"><input class="pn" type="number" min="0" max="100" step="any"> % of the step <span class="tt"></span><button class="ap" type="button">Apply to all</button></div><div class="pp" id="pp${k}"></div></div>`).join('');
   six.querySelectorAll('select').forEach(sel => { const k = +sel.dataset.k;
     if (sel.dataset.w === 's') { if (!steps.includes(S.inst[k][0])) S.inst[k][0] = steps[0]; sel.innerHTML = steps.map(s => `<option value="${s}" ${s === S.inst[k][0] ? 'selected' : ''}>${esc(STEP[s].name)}</option>`).join(''); sel.onchange = () => { S.inst[k][0] = +sel.value; drawStatic(); }; }
-    else { sel.innerHTML = PCT.map(p => `<option value="${p}" ${p === S.inst[k][1] ? 'selected' : ''}>${p} % of the step</option>`).join(''); sel.onchange = () => { S.inst[k][1] = +sel.value; drawStatic(); }; } });
+  });
+  six.querySelectorAll('.ph').forEach((ph, k) => { const rg = ph.querySelector('input[type=range]'), nb = ph.querySelector('.pn'), r0 = recs(cols[0], cycs[0]).find(r => r.s === S.inst[k][0]);
+    rg.value = S.inst[k][1]; if (document.activeElement !== nb) nb.value = +(+S.inst[k][1]).toFixed(2); ph.querySelector('.tt').textContent = r0 ? `(${(S.inst[k][1] / 100 * r0.dur).toFixed(1)} s)` : '';
+    rg.oninput = () => { S.inst[k][1] = +rg.value; nb.value = S.inst[k][1]; clearTimeout(rg._t); rg._t = setTimeout(drawStatic, 90); };
+    nb.onchange = () => { const v = +nb.value; if (isFinite(v)) { S.inst[k][1] = Math.min(100, Math.max(0, v)); drawStatic(); } };
+    ph.querySelector('.ap').onclick = () => { S.inst.forEach(x => x[1] = S.inst[k][1]); drawStatic(); }; });
   const sels = cols.flatMap(col => cycs.map(cyc => [col, cyc])), panels = [];
   let lo = Infinity, hi = -Infinity;
   S.inst.forEach(([s, pct]) => {
