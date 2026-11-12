@@ -128,8 +128,8 @@ footer div{display:flex;gap:24px}
 (() => { const b = document.getElementById('theme'), set = t => { document.documentElement.dataset.theme = t; b.textContent = t === 'light' ? 'Dark mode' : 'Light mode'; try { localStorage.setItem('home-theme', t); } catch (e) {} };
   set(document.documentElement.dataset.theme); b.onclick = () => set(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); })();
 </script>
-<script src="assets/hero-symbol.js"></script>
-<script src="assets/works.js"></script>
+<script src="assets/hero-symbol.js?v=20261111"></script>
+<script src="assets/works.js?v=20261111"></script>
 
 </body>
 </html>
