@@ -22,7 +22,7 @@
       links: [['Explore the results', 'rl-productivity/index.html', 1]], later: 'Article in preparation' },
     { key: 'rle', title: 'Reinforcement learning for PSA operation: maximising profit',
       text: 'The same agent, now rewarded by profit: it learns to adapt the plant to changing energy prices.',
-      links: [], later: 'Article and interactive results in preparation' },
+      links: [['Explore the results', 'rl-economic/index.html', 1]], later: 'Work in progress' },
   ];
 
   const list = document.getElementById('work-list'), detail = document.getElementById('detail'), cv = document.getElementById('screen');
