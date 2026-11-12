@@ -28,7 +28,7 @@ a{color:inherit}
 
 /* Hero: text on the left, the glass columns behind on the right */
 .hero{position:relative;min-height:min(86svh,820px);display:flex;align-items:center;padding:0 var(--g) 80px;overflow:hidden}
-#hero-flow{position:absolute;top:0;right:0;width:68vw;height:100%;display:block}
+#hero-flow{position:absolute;top:0;left:46%;width:54%;height:100%;display:block}
 #hero-flow.no-gl{display:none}
 .hero .fade{position:absolute;inset:0;background:linear-gradient(90deg,#000 22%,rgba(0,0,0,.65) 44%,rgba(0,0,0,0) 64%);pointer-events:none}
 .hero-text{position:relative;z-index:1;max-width:min(680px,46%)}
@@ -74,7 +74,7 @@ footer div{display:flex;gap:24px}
   .hero-text{max-width:none}
   .screen canvas{min-height:300px}
   .hero{min-height:auto;padding-top:40px;padding-bottom:420px;align-items:flex-start}
-  #hero-flow{top:auto;bottom:80px;right:0;width:100%;height:340px}
+  #hero-flow{top:auto;bottom:80px;left:0;right:0;width:100%;height:340px}
   .hero .fade{background:linear-gradient(180deg,#000 45%,rgba(0,0,0,0) 75%)}
   .hero-cap{left:var(--g);right:var(--g);bottom:16px;text-align:left;justify-content:space-between}
   .win-body{grid-template-columns:1fr;padding:12px}
@@ -128,7 +128,7 @@ footer div{display:flex;gap:24px}
 (() => { const b = document.getElementById('theme'), set = t => { document.documentElement.dataset.theme = t; b.textContent = t === 'light' ? 'Dark mode' : 'Light mode'; try { localStorage.setItem('home-theme', t); } catch (e) {} };
   set(document.documentElement.dataset.theme); b.onclick = () => set(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); })();
 </script>
-<script src="assets/hero-symbol.js?v=20261111"></script>
+<script src="assets/hero-symbol.js?v=20261112"></script>
 <script src="assets/works.js?v=20261111"></script>
 
 </body>

@@ -9,7 +9,7 @@
   function fit() {
     const d = Math.min(devicePixelRatio || 1, 2), r = cv.getBoundingClientRect();
     W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx = cv.getContext('2d'); ctx.setTransform(d, 0, 0, d, 0, 0);
-    cx = W * (innerWidth > 760 ? .56 : .5); cy = H * .5; S = Math.min(W, H) * (MODE === 'cycle' ? .34 : .36); if (MODE !== 'cycle') cy = H * .45;
+    cx = W * .5; cy = H * .5; S = Math.min(W, H) * (MODE === 'cycle' ? .34 : .36); if (MODE !== 'cycle') cy = H * .45;
   }
   // camera: turn about the vertical axis, fixed tilt. Returns screen x, y and depth (-1 far .. 1 near)
   let yaw = 0; const TILT = .5;
