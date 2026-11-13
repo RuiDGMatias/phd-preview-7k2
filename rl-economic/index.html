@@ -315,7 +315,7 @@ const PRICES = [['all', 'All contracts'], ['normal', 'Nominal'], ['ch4_high', 'E
 const PL = { normal: 'Nominal', ch4_high: 'Expensive CH₄', co2_high: 'Expensive CO₂' };
 const PERT = { none: 'None', step_up: 'Step up', step_down: 'Step down', ramp_up: 'Ramp up', ramp_down: 'Ramp down' };
 const PERTS = Object.keys(PERT), HOURS = [0, 6, 12, 18, 22];
-const VIEWS = [['train', 'Training'], ['gain', 'Gain by agent'], ['ecdf', 'Gain distribution'], ['rank', 'All 150 days'], ['heat', 'Feed disturbances'], ['brk', 'Revenue and cost'], ['traj', 'One day, cycle by cycle']];
+const VIEWS = [['train', 'Training'], ['gain', 'Gain by agent'], ['ecdf', 'Gain distribution'], ['rank', 'All 150 days'], ['heat', 'Feed disturbances'], ['brk', 'Revenue and cost'], ['traj', 'Detailed scenarios']];
 const hh = h => String(h).padStart(2, '0') + ':00';
 const scenName = sc => `${sc.season === 'winter' ? 'Winter' : 'Summer'}, ${hh(sc.hour)}, CH₄ fraction: ${PERT[sc.w].toLowerCase()}, flow: ${PERT[sc.F].toLowerCase()}, ${PL[sc.price].toLowerCase()} contract`;
 
@@ -751,7 +751,7 @@ async function vTraj() {
   const groups = [['Test day', ctx.map(c => ({ ctx: c })), 'ctx'], ['Results', res.map(v => ({ v })), 'res'], ['Operating variables', ops.map(v => ({ v })), 'ops']].filter(g => g[1].length);
   if (!groups.length) return empty('Select at least one variable.');
   // fixed heights in pixels: the page grows instead of squeezing the plots
-  const HC = 110, HV = 250, GAP = 30, GGAP = 62, TOP = 34, BOT = 54;
+  const HC = 110, HV = 250, GAP = 30, GGAP = 112, TOP = 34, BOT = 54;
   let y = TOP; const rows = [];
   groups.forEach(([gname, items, kind], gi) => { if (gi) y += GGAP - GAP; items.forEach((it, j) => { const hpx = kind === 'ctx' ? HC : HV; rows.push(Object.assign({ kind, gname, first: j === 0, y0: y, y1: y + hpx }, it)); y += hpx + GAP; }); });
   const H = y - GAP + BOT; $('#plot').style.height = H + 'px';
@@ -763,7 +763,7 @@ async function vTraj() {
   const gate = (P, cp) => P.t.map((t, i) => cp === 'both' ? P.pur_ch4[i] >= specAt(t, 'spec_ch4') - 1e-9 && P.pur_co2[i] >= specAt(t, 'spec_co2') - 1e-9 : P['pur_' + cp.toLowerCase()][i] >= specAt(t, 'spec_' + cp.toLowerCase()) - 1e-9);
   const tint = { ctx: alpha(css('--ink').length === 7 ? css('--ink') : '#888888', root.dataset.theme === 'light' ? .1 : .08), ops: alpha(css('--a1'), root.dataset.theme === 'light' ? .11 : .1) };
   groups.forEach(([gname, items, kind]) => {
-    const rs = rows.filter(r => r.gname === gname), top = rs[0].y0 - 22, bot = rs[rs.length - 1].y1 + 12;
+    const rs = rows.filter(r => r.gname === gname), top = rs[0].y0 - 22, bot = rs[rs.length - 1].y1 + 50;
     if (tint[kind]) shapes.push({ type: 'rect', xref: 'paper', yref: 'paper', x0: -.075, x1: 1.008, y0: fy(bot), y1: fy(top), fillcolor: tint[kind], line: { width: 0 }, layer: 'below' });
     ann.push({ text: `<b>${gname}</b>`, xref: 'paper', yref: 'paper', x: -.07, y: fy(top + 2), xanchor: 'left', yanchor: 'top', showarrow: false, font: { size: 12 } });
   });
@@ -794,6 +794,15 @@ async function vTraj() {
   });
   L.xaxis = axis({ title: { text: 'Hours from the start of the window' }, range: [0, 24.4], anchor: 'y' + rows.length === 'y1' ? 'y' : 'y' + rows.length, dtick: 3 });
   L.xaxis.anchor = rows.length === 1 ? 'y' : 'y' + rows.length;
+  // an hour axis under every block (test day, results, operating variables)
+  let xn = 1;
+  groups.forEach(([gname]) => {
+    const last = rows.map((r, i) => [r, i]).filter(([r]) => r.gname === gname).pop()[1];
+    if (last === rows.length - 1) return;
+    xn++; const yr = last ? 'y' + (last + 1) : 'y';
+    L['xaxis' + xn] = axis({ matches: 'x', anchor: yr, dtick: 3, title: { text: 'Hours from the start', font: { size: 11 }, standoff: 4 } });
+    tr.push({ x: [0], y: [null], xaxis: 'x' + xn, yaxis: yr, type: 'scatter', mode: 'markers', hoverinfo: 'skip', showlegend: false });
+  });
   L.shapes = [...shapes, { type: 'line', xref: 'x', x0: 6, x1: 6, yref: 'paper', y0: 0, y1: 1, line: { color: css('--rule'), width: 1, dash: 'dot' } }];
   L.annotations = ann;
   CSV.unshift(['series', 'values (one per cycle)']);
