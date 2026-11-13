@@ -844,7 +844,18 @@ function drawFrame(i, w, h, c2) {
     for (const [p, c] of order) { const M = mats[n + c + (g || '')], z = v === 'u_m_s' ? RUN.colInfo[c].zf : RUN.colInfo[c].z; if (!M[i]) continue;
       M[i].forEach((val, j) => { const x = X(p, z[j] / RUN.L), y = Y(Math.max(lo, Math.min(hi, val))); first ? C.moveTo(x, y) : C.lineTo(x, y); first = false; });
       if (RUN.loop !== 'closed' && pos(c) === N) first = true; }
-    C.stroke(); } });
+    C.stroke(); C.setLineDash([]);
+    // the junction between the end of zone IV and the start of zone I: one ball joining the two ends,
+    // open if the loop is open, filled if it is closed (at the two edges of the plot when the junction is there)
+    const endPt = (c, last) => { const M = mats[n + c + (g || '')], z = v === 'u_m_s' ? RUN.colInfo[c].zf : RUN.colInfo[c].z; if (!M || !M[i]) return null;
+      const jj = last ? M[i].length - 1 : 0; return [X(jOf(c), z[jj] / RUN.L), Y(Math.max(lo, Math.min(hi, M[i][jj])))]; };
+    const pA = endPt(colAt(N), true), pB = endPt(colAt(1), false), ball = (x, y) => { C.beginPath(); C.arc(x, y, 4.2, 0, 2 * Math.PI);
+      if (RUN.loop === 'closed') { C.fillStyle = st.color; C.fill(); } else { C.fillStyle = TH.paper; C.fill(); C.lineWidth = 1.7; C.strokeStyle = st.color; C.stroke(); } };
+    if (pA && pB) {
+      if (jOf(colAt(1)) === 1) { ball(pA[0], pA[1]); ball(pB[0], pB[1]); }
+      else { const xm = (pA[0] + pB[0]) / 2, ym = (pA[1] + pB[1]) / 2;
+        C.strokeStyle = st.color; C.lineWidth = STYLE.lw; C.beginPath(); C.moveTo(pA[0], pA[1]); C.lineTo(xm, ym); C.lineTo(pB[0], pB[1]); C.stroke(); ball(xm, ym); } }
+    C.lineWidth = STYLE.lw; } });
   C.setLineDash([]);
   // legend
   C.textAlign = 'left'; let lx = ml; C.font = '13px Sora, Segoe UI, sans-serif';
