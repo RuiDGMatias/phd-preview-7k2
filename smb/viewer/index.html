@@ -803,35 +803,47 @@ function drawFrame(i, w, h, c2) {
   const ml = 70, mr = 26, top = 104, bot = H - 64, gap = 0, bw = (W - ml - mr) / N;
   const X = (pos, f) => ml + (pos - 1) * (bw + gap) + f * bw, Y = val => bot - (val - lo) / (hi - lo) * (bot - top);
   C.font = '13px Sora, Segoe UI, sans-serif'; C.textBaseline = 'middle';
-  // zones: a tone above each group of columns
-  let p0 = 1; RUN.zones.forEach((n, k) => { const x0 = X(p0, 0), x1 = X(p0 + n - 1, 1);
-    C.fillStyle = TH.zone[k]; C.fillRect(x0 + 1, 14, x1 - x0 - 2, 24);
-    C.fillStyle = (k < 2 && !TH.light) || (k === 0) ? '#ffffff' : TH.ink; C.textAlign = 'center'; C.fillText('Zone ' + ['I', 'II', 'III', 'IV'][k], (x0 + x1) / 2, 26.5); p0 += n; });
+  // the columns stay in place (C1 ... CN); the zones and the ports move round them, period by period
+  const ZI = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5 }, jOf = c => COLS.indexOf(c) + 1;
+  const pos = c => RUN.posOf[c][i], colAt = p => COLS.find(c => pos(c) === p), zoneOf = c => ZI[RUN.zoneOf[c][i]];
+  let a0 = 1;
+  for (let j = 1; j <= N; j++) { const z = zoneOf(COLS[j - 1]); if (j === N || zoneOf(COLS[j]) !== z) {
+      const x0 = X(a0, 0), x1 = X(j, 1); C.fillStyle = TH.zone[z % 4]; C.fillRect(x0 + 1, 14, x1 - x0 - 2, 24);
+      C.fillStyle = (z < 2 && !TH.light) || z === 0 ? '#ffffff' : TH.ink; C.textAlign = 'center'; C.fillText('Zone ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][z], (x0 + x1) / 2, 26.5); a0 = j + 1; } }
   // grid and axis
   C.strokeStyle = TH.grid; C.lineWidth = 1; C.fillStyle = TH.ink; C.textAlign = 'right';
   for (let k = 0; k <= 4; k++) { const val = lo + (hi - lo) * k / 4, y = Y(val); C.beginPath(); C.moveTo(ml, y); C.lineTo(W - mr, y); C.stroke(); C.fillText(fmt(val, 3), ml - 8, y); }
   C.save(); C.translate(18, (top + bot) / 2); C.rotate(-Math.PI / 2); C.textAlign = 'center'; C.fillText(`${varLabel(v)} (${varUnit(v)})`, 0, 0); C.restore();
-  // the columns, in the order of their positions, with their names
-  const order = COLS.map(c => [RUN.posOf[c][i], c]).sort((a, b) => a[0] - b[0]);
   C.strokeStyle = TH.axis; C.lineWidth = 1.4; C.strokeRect(X(1, 0), top - 6, X(N, 1) - X(1, 0), bot - top + 12);
   C.lineWidth = 1; C.setLineDash([5, 4]);
   for (let p = 1; p < N; p++) { const x = X(p, 1); C.beginPath(); C.moveTo(x, top - 6); C.lineTo(x, bot + 6); C.stroke(); }
   C.setLineDash([]);
-  for (const [p, c] of order) { C.fillStyle = TH.ink; C.textAlign = 'center'; C.fillText(c, X(p, .5), bot + 22); }
-  // the ports: in at the start of zones I and III, out at the end of zones I and III, end of zone IV
+  COLS.forEach((c, n) => { C.fillStyle = TH.ink; C.textAlign = 'center'; C.fillText(c, X(n + 1, .5), bot + 22); });
+  // the ports, at the boundary between two neighbouring columns (boundary 0: after the last column, before the first)
   const zEnd = []; let acc = 0; RUN.zones.forEach(n => { acc += n; zEnd.push(acc); });
-  const port = (posEnd, label, into) => { const x = posEnd === 0 ? X(1, 0) : X(posEnd, 1), y0 = top - 40, y1 = top - 10;
+  const bOut = c => jOf(c) % N, bIn = c => jOf(c) - 1;
+  const ports = [
+    { b: bIn(colAt(1)), into: true, label: 'Desorbent' }, { b: bOut(colAt(zEnd[0])), into: false, label: 'Extract' },
+    { b: bIn(colAt(zEnd[1] + 1)), into: true, label: 'Feed' }, { b: bOut(colAt(zEnd[2])), into: false, label: 'Raffinate' },
+    { b: bOut(colAt(N)), into: false, label: RUN.loop === 'closed' ? 'To recycle' : 'Zone IV out' } ];
+  const shared = b => ports.filter(q => q.b === b).length > 1;
+  for (const pt of ports) {
+    let x = pt.b === 0 ? (pt.into ? X(1, 0) : X(N, 1)) : X(pt.b, 1), align = 'center';
+    if (pt.b === 0) align = pt.into ? 'left' : 'right';
+    else if (shared(pt.b)) { x += pt.into ? 7 : -7; align = pt.into ? 'left' : 'right'; }
+    const y0 = top - 40, y1 = top - 10;
     C.strokeStyle = TH.ink; C.fillStyle = TH.ink; C.lineWidth = 1.6; C.beginPath(); C.moveTo(x, y0); C.lineTo(x, y1); C.stroke();
-    const yt = into ? y1 : y0, d = into ? 1 : -1; C.beginPath(); C.moveTo(x - 5, yt - 7 * d); C.lineTo(x + 5, yt - 7 * d); C.lineTo(x, yt); C.closePath(); C.fill();
-    C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = posEnd === 0 ? 'left' : posEnd === RUN.N ? 'right' : 'center'; C.fillText(label, posEnd === 0 ? x - 4 : posEnd === RUN.N ? x + 4 : x, y0 - 10); C.font = '13px Sora, Segoe UI, sans-serif'; };
-  port(0, 'Desorbent', true); port(zEnd[0], 'Extract', false); port(zEnd[1], 'Feed', true); port(zEnd[2], 'Raffinate', false);
-  port(zEnd[3], RUN.loop === 'closed' ? 'To recycle' : 'Zone IV out', false);
+    const yt = pt.into ? y1 : y0, d = pt.into ? 1 : -1; C.beginPath(); C.moveTo(x - 5, yt - 7 * d); C.lineTo(x + 5, yt - 7 * d); C.lineTo(x, yt); C.closePath(); C.fill();
+    C.font = '12px Sora, Segoe UI, sans-serif'; C.textAlign = align; C.fillText(pt.label, align === 'left' ? x - 4 : align === 'right' ? x + 4 : x, y0 - 10); C.font = '13px Sora, Segoe UI, sans-serif'; }
+  // the profile follows the columns in their fixed order; it breaks where zone IV ends if the loop is open
+  const order = COLS.map((c, n) => [n + 1, c]);
   // the profile
   C.lineWidth = STYLE.lw; C.lineJoin = 'round';
   runs.forEach((R, n) => { for (const g of gases) { const st = lineStyle(n, nSel, g, gases.length); C.strokeStyle = st.color; C.setLineDash(CDASH[st.dash] || []);
     C.beginPath(); let first = true;
     for (const [p, c] of order) { const M = mats[n + c + (g || '')], z = v === 'u_m_s' ? RUN.colInfo[c].zf : RUN.colInfo[c].z; if (!M[i]) continue;
-      M[i].forEach((val, j) => { const x = X(p, z[j] / RUN.L), y = Y(Math.max(lo, Math.min(hi, val))); first ? C.moveTo(x, y) : C.lineTo(x, y); first = false; }); }
+      M[i].forEach((val, j) => { const x = X(p, z[j] / RUN.L), y = Y(Math.max(lo, Math.min(hi, val))); first ? C.moveTo(x, y) : C.lineTo(x, y); first = false; });
+      if (RUN.loop !== 'closed' && pos(c) === N) first = true; }
     C.stroke(); } });
   C.setLineDash([]);
   // legend
