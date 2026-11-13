@@ -141,6 +141,8 @@
   .selgrid select { padding:2px 0; }
   .calc { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px 40px; align-items:start; }
   .calc .slab { margin:4px 0; }
+  main.tall { overflow-y:auto; } main.tall #plot { flex:none; } main.tall .mtab { max-height:none; overflow:visible; }
+  #plot2Wrap { display:none; } main.tall #plot2Wrap { display:block; flex:none; border-top:1px solid var(--rule); padding-top:14px; } #plot2Wrap h1 { font-size:15px; font-weight:600; } #plot2 { height:340px; }
   .grid22 { display:grid; grid-template-columns:150px repeat(2, minmax(0,180px)); gap:8px; align-items:stretch; max-width:560px; margin:14px 0 6px; }
   .grid22 .h { font-size:12.5px; font-weight:600; display:flex; align-items:flex-end; }
   .grid22 .r { font-size:13px; display:flex; align-items:center; }
@@ -267,13 +269,13 @@
 
     <div class="box" data-for="traj"><h4>Day</h4><div class="selgrid" id="dayPick"></div><svg id="sideSpark" viewBox="0 0 260 46" preserveAspectRatio="none"></svg></div>
 
-    <div class="box" data-for="train gain ecdf rank heat hour trade brk traj"><h4>Agents</h4><div id="agList"></div>
+    <div class="box" data-for="train gain ecdf rank heat brk traj"><h4>Agents</h4><div id="agList"></div>
       <div style="margin-top:10px" class="small">Seeds</div><div class="seg" id="seedSeg" style="margin-top:4px"><button type="button" data-s="1" class="on">1</button><button type="button" data-s="2" class="on">2</button><button type="button" data-s="3" class="on">3</button></div>
       <p class="hint" id="seedNote" style="margin-top:8px"></p></div>
 
-    <div class="box" data-for="ecdf rank heat hour trade brk"><h4>Contract</h4><div class="optlist" id="priceList"></div></div>
+    <div class="box" data-for="ecdf rank heat brk"><h4>Contract</h4><div class="optlist" id="priceList"></div></div>
+    <div class="box" data-for="heat"><h4>Test day</h4><div class="optlist" id="seasonList"></div><p class="hint" style="margin-top:8px">With one day and one contract, each cell is a single test day.</p></div>
     <div class="box" data-for="train"><h4>Metric</h4><div class="optlist" id="trMetric"></div></div>
-    <div class="box" data-for="trade"><h4>Purity counted</h4><div class="seg" id="tradeSeg"><button type="button" data-k="frac_ok_both" class="on">Both</button><button type="button" data-k="frac_ok_ch4">CH₄</button><button type="button" data-k="frac_ok_co2">CO₂</button></div></div>
 
     <div class="box" data-for="traj"><h4>Context</h4><div id="ctxList"></div></div>
     <div class="box" data-for="traj"><h4>Variables <button class="linkbtn small" id="varReset" type="button">Reset</button></h4><div id="varList"></div>
@@ -285,6 +287,7 @@
     <div class="head"><h1 id="title"></h1><span class="meta"><span id="meta"></span><button class="linkbtn" id="fsBtn" type="button">Full screen</button></span></div>
     <div class="legend" id="legend"></div>
     <div id="plot"></div>
+    <div id="plot2Wrap"><h1 id="t2">Where the profit of this day comes from</h1><div id="plot2"></div></div>
     <div class="mtab" id="mtab"></div>
   </main>
 </div>
@@ -305,14 +308,14 @@ const AGDEF = {
   4: { cc: '10%', rel: true, ema: true }, 5: { cc: '30%', rel: true, ema: false } };
 const agDesc = a => { const d = AGDEF[a]; return `${d.cc} contract changes${d.rel ? ', relabelling' : ''}${d.ema ? ', EMA' : ''}`; };
 const runId = (a, s) => `A${a}s${s}`;
+const AGS = () => S.view === 'traj' ? S.agsT : S.ags;
 const col = a => css(a === 0 ? '--a0' : '--a' + a);
 const DASH = { 1: 'solid', 2: 'dash', 3: 'dot' };
 const PRICES = [['all', 'All contracts'], ['normal', 'Nominal'], ['ch4_high', 'Expensive CH₄'], ['co2_high', 'Expensive CO₂']];
 const PL = { normal: 'Nominal', ch4_high: 'Expensive CH₄', co2_high: 'Expensive CO₂' };
 const PERT = { none: 'None', step_up: 'Step up', step_down: 'Step down', ramp_up: 'Ramp up', ramp_down: 'Ramp down' };
 const PERTS = Object.keys(PERT), HOURS = [0, 6, 12, 18, 22];
-const VIEWS = [['train', 'Training'], ['gain', 'Gain by agent'], ['ecdf', 'Gain distribution'], ['rank', 'All 150 days'], ['heat', 'Feed disturbances'], ['hour', 'Start hour and season'],
-  ['trade', 'Profit and purity'], ['brk', 'Revenue and cost'], ['traj', 'One day, cycle by cycle']];
+const VIEWS = [['train', 'Training'], ['gain', 'Gain by agent'], ['ecdf', 'Gain distribution'], ['rank', 'All 150 days'], ['heat', 'Feed disturbances'], ['brk', 'Revenue and cost'], ['traj', 'One day, cycle by cycle']];
 const hh = h => String(h).padStart(2, '0') + ':00';
 const scenName = sc => `${sc.season === 'winter' ? 'Winter' : 'Summer'}, ${hh(sc.hour)}, CH₄ fraction: ${PERT[sc.w].toLowerCase()}, flow: ${PERT[sc.F].toLowerCase()}, ${PL[sc.price].toLowerCase()} contract`;
 
@@ -332,13 +335,13 @@ addV('Operating variables', 'u3v', 'Recycle split', '–', { X: 'u:3' });
 addV('Operating variables', 'u4v', 'Purge split', '–', { X: 'u:4' });
 const isComp = id => !!V[id].keys.CO2;
 const COMPS = { CH4: 'CH₄', CO2: 'CO₂' };
-const DEFAULT_VARS = ['cum', 'pur'];
+const DEFAULT_VARS = ['cum', 'pur', 'u0v'];
 const CTX = [['pel', 'Electricity price', 'EUR/kWh', 'Electricity<br>(EUR/kWh)'], ['w', 'Feed CH\u2084 fraction', '\u2013', 'Feed CH\u2084<br>fraction'], ['F', 'Feed flow', 'relative', 'Feed flow<br>(relative)'], ['T', 'Temperatures', '\u00b0C', 'Ambient, feed<br>(\u00b0C)'], ['p', 'Contract prices', '', 'CH\u2084 EUR/MWh,<br>CO\u2082 EUR/t']];
 const DEFAULT_CTX = ['pel', 'w', 'F'];
 
 // ---------------------------------------------------------------- state
 let META = null; const CACHE = {}, PEND = {};
-const S = { tab: 'work', view: 'gain', ags: new Set(AG), seeds: new Set(SEEDS), withU0: true, price: 'all', trM: 'profit_eur', tradeK: 'frac_ok_both',
+const S = { agsT: new Set([4]), season: 'all', tab: 'work', view: 'gain', ags: new Set(AG), seeds: new Set(SEEDS), withU0: true, price: 'all', trM: 'profit_eur', tradeK: 'frac_ok_both',
   day: { season: 'winter', hour: 6, w: 'step_up', F: 'none', price: 'normal' }, vars: [...DEFAULT_VARS], comp: { pur: 'both', rev: 'both', prod: 'CH4' }, ctx: [...DEFAULT_CTX], draw: 'pl' };
 
 // ---------------------------------------------------------------- data (scripts that call window.__rle)
@@ -550,13 +553,14 @@ function buildSide() {
   $$('#viewList .opt').forEach(b => b.onclick = () => { S.view = b.dataset.k; render(); });
   $('#agList').innerHTML = AG.map(a => `<label class="crow"><input type="checkbox" value="${a}"><span class="dot" style="background:var(--a${a})"></span><span class="k">${a}</span><span class="lab small">${agDesc(a)}</span></label>`).join('') +
     `<label class="crow"><input type="checkbox" value="0"><span class="dot" style="background:var(--a0)"></span><span class="k">u₀</span><span class="lab">Fixed operating point</span></label>`;
-  $$('#agList input').forEach(i => i.onchange = () => { const a = +i.value; if (!a) S.withU0 = i.checked; else i.checked ? S.ags.add(a) : S.ags.delete(a); render(); });
+  $$('#agList input').forEach(i => i.onchange = () => { const a = +i.value; if (!a) S.withU0 = i.checked; else i.checked ? AGS().add(a) : AGS().delete(a); render(); });
   $$('#seedSeg button').forEach(b => b.onclick = () => { const s = +b.dataset.s; if (S.seeds.has(s) && S.seeds.size > 1) S.seeds.delete(s); else S.seeds.add(s); render(); });
   $('#priceList').innerHTML = PRICES.map(([k, n]) => `<button type="button" class="opt" data-k="${k}">${n}</button>`).join('');
   $$('#priceList .opt').forEach(b => b.onclick = () => { S.price = b.dataset.k; render(); });
+  $('#seasonList').innerHTML = [['all', 'Both days, mean'], ['winter', 'Winter day'], ['summer', 'Summer day']].map(([k, n]) => `<button type="button" class="opt" data-k="${k}">${n}</button>`).join('');
+  $$('#seasonList .opt').forEach(b => b.onclick = () => { S.season = b.dataset.k; render(); });
   $('#trMetric').innerHTML = TRM.map(([k, n]) => `<button type="button" class="opt" data-k="${k}">${n}</button>`).join('');
   $$('#trMetric .opt').forEach(b => b.onclick = () => { S.trM = b.dataset.k; render(); });
-  $$('#tradeSeg button').forEach(b => b.onclick = () => { S.tradeK = b.dataset.k; render(); });
   $$('#joinSeg button').forEach(b => b.onclick = () => { S.draw = b.dataset.j; render(); });
   $('#varReset').onclick = () => { S.vars = [...DEFAULT_VARS]; S.ctx = [...DEFAULT_CTX]; render(); };
 }
@@ -579,12 +583,12 @@ function buildVars() {
 function syncSide() {
   $$('#viewList .opt').forEach(b => b.classList.toggle('on', b.dataset.k === S.view));
   $$('.side [data-for]').forEach(el => el.hidden = !el.dataset.for.split(' ').includes(S.view));
-  $$('#agList input').forEach(i => i.checked = +i.value ? S.ags.has(+i.value) : S.withU0);
+  $$('#agList input').forEach(i => i.checked = +i.value ? AGS().has(+i.value) : S.withU0);
   $$('#agList input[value="0"]').forEach(i => i.closest('label').hidden = S.view === 'train');
   $$('#seedSeg button').forEach(b => b.classList.toggle('on', S.seeds.has(+b.dataset.s)));
   $$('#priceList .opt').forEach(b => b.classList.toggle('on', b.dataset.k === S.price));
+  $$('#seasonList .opt').forEach(b => b.classList.toggle('on', b.dataset.k === S.season));
   $$('#trMetric .opt').forEach(b => b.classList.toggle('on', b.dataset.k === S.trM));
-  $$('#tradeSeg button').forEach(b => b.classList.toggle('on', b.dataset.k === S.tradeK));
   $$('#joinSeg button').forEach(b => b.classList.toggle('on', b.dataset.j === S.draw));
   const note = { train: 'No training log for seed 1 of agent 1.', traj: 'No cycle data for seed 1 of agents 1, 2 and 4.', brk: 'Based on the days with cycle data: seed 1 of agents 1, 2 and 4 is missing.' }[S.view] || '';
   $('#seedNote').textContent = note; $('#seedNote').hidden = !note;
@@ -600,9 +604,9 @@ function axis(extra = {}) { const r = css('--rule'), r2 = css('--rule2'); return
 function alpha(hex, a) { const m = hex.replace('#', ''); const n = parseInt(m.length === 3 ? m.split('').map(x => x + x).join('') : m, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
 function wrapTitle(t, u) { const s = `${t} (${u})`; if (s.length < 24) return s; const w = t.split(' '); let a = '', b = ''; w.forEach(x => (a.length + x.length < 18 && !b ? a += (a ? ' ' : '') + x : b += (b ? ' ' : '') + x)); return `${a}<br>${b} (${u})`; }
 function legendHTML(items) { $('#legend').innerHTML = items.map(([lab, color, dash, w = 2, mk]) => `<span><svg viewBox="0 0 26 10">${mk ? mk : `<line x1="1" x2="25" y1="5" y2="5" stroke="${color}" stroke-width="${w}" stroke-dasharray="${dash === 'dash' ? '6 4' : dash === 'dot' ? '1.5 3' : ''}" stroke-linecap="round"/>`}</svg>${lab}</span>`).join(''); }
-const agItems = (withSeeds) => { const it = AG.filter(a => S.ags.has(a)).map(a => [`Agent ${a}`, col(a), 'solid']); if (S.withU0) it.push(['Fixed u₀', col(0), 'dash']); if (withSeeds) SEEDS.filter(s => S.seeds.has(s)).forEach(s => it.push([`seed ${s}`, css('--ink'), DASH[s], 1.4])); return it; };
+const agItems = (withSeeds) => { const it = AG.filter(a => AGS().has(a)).map(a => [`Agent ${a}`, col(a), 'solid']); if (S.withU0) it.push(['Fixed u₀', col(0), 'dash']); if (withSeeds) SEEDS.filter(s => S.seeds.has(s)).forEach(s => it.push([`seed ${s}`, css('--ink'), DASH[s], 1.4])); return it; };
 const sel = () => META.scen.map((s, i) => i).filter(i => S.price === 'all' || META.scen[i].price === S.price);
-const runs = (needSeries) => { const o = []; AG.filter(a => S.ags.has(a)).forEach(a => SEEDS.filter(s => S.seeds.has(s)).forEach(s => { const k = runId(a, s); if (!needSeries || META.haveSeries.includes(k)) o.push([a, s, k]); })); return o; };
+const runs = (needSeries) => { const o = []; AG.filter(a => AGS().has(a)).forEach(a => SEEDS.filter(s => S.seeds.has(s)).forEach(s => { const k = runId(a, s); if (!needSeries || META.haveSeries.includes(k)) o.push([a, s, k]); })); return o; };
 const gainOf = (k, i) => META.runs[k].profit_eur[i] - META.u0.profit_eur[i];
 const mean = v => v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
 const sd = v => { const m = mean(v); return Math.sqrt(mean(v.map(x => (x - m) ** 2))); };
@@ -626,7 +630,7 @@ function vTrain() {
 function vGain() {
   $('#title').textContent = 'Mean gain over the fixed operating point'; $('#meta').textContent = 'EUR per day, each dot is one seed';
   const groups = PRICES, L = baseLayout(); L.margin.t = 30; const tr = [], n = groups.length, gap = .03, w = (1 - gap * (n - 1)) / n;
-  const ags = AG.filter(a => S.ags.has(a)), rows = []; CSV = [['contract', 'agent', 'seed', 'mean_gain_eur']];
+  const ags = AG.filter(a => AGS().has(a)), rows = []; CSV = [['contract', 'agent', 'seed', 'mean_gain_eur']];
   groups.forEach(([pk, pn], gi) => {
     const xa = gi ? 'x' + (gi + 1) : 'x', ya = gi ? 'y' + (gi + 1) : 'y';
     L[gi ? 'xaxis' + (gi + 1) : 'xaxis'] = axis({ domain: [gi * (w + gap), gi * (w + gap) + w], tickvals: ags, ticktext: ags.map(a => 'Agent ' + a), showgrid: false, range: [ags[0] - .6, ags[ags.length - 1] + .6], anchor: ya });
@@ -654,7 +658,7 @@ function vEcdf() {
   $('#title').textContent = 'Distribution of the gain over u₀'; $('#meta').textContent = 'All selected day and seed pairs';
   const idx = sel(), L = baseLayout(); L.hovermode = 'closest'; L.xaxis = axis({ title: { text: 'Gain over u₀ (EUR per day)' }, zeroline: true, zerolinecolor: css('--ink') }); L.yaxis = axis({ title: { text: 'Share of day and seed pairs' }, range: [0, 1.02], tickformat: '.0%' });
   const tr = []; CSV = [['agent', 'gain_eur', 'cum_fraction']];
-  AG.filter(a => S.ags.has(a)).forEach(a => {
+  AG.filter(a => AGS().has(a)).forEach(a => {
     const v = SEEDS.filter(s => S.seeds.has(s)).flatMap(s => idx.map(i => gainOf(runId(a, s), i))).sort((x, y) => x - y), n = v.length;
     tr.push({ x: v, y: v.map((_, i) => (i + 1) / n), type: 'scatter', mode: 'lines', line: { shape: 'hv', color: col(a), width: 1.8 }, hovertemplate: `Agent ${a}: %{y:.0%} of pairs below %{x:.0f} EUR<extra></extra>` });
     v.forEach((x, i) => CSV.push([a, x.toFixed(1), ((i + 1) / n).toFixed(4)]));
@@ -671,7 +675,7 @@ function vRank() {
   const x = order.map((_, j) => j + 1), tr = [], names = order.map(i => scenName(META.scen[i]));
   CSV = [['rank', 'scenario', 'u0_profit', ...runs(false).map(r => r[2])]];
   order.forEach((i, j) => CSV.push([j + 1, META.scen[i].id, META.u0.profit_eur[i], ...runs(false).map(r => META.runs[r[2]].profit_eur[i])]));
-  AG.filter(a => S.ags.has(a)).forEach(a => {
+  AG.filter(a => AGS().has(a)).forEach(a => {
     const ks = SEEDS.filter(s => S.seeds.has(s)).map(s => runId(a, s)), off = (a - 3) * .12;
     ks.forEach(k => { tr.push({ x: x.map(v => v + off), y: order.map(i => META.runs[k].profit_eur[i]), yaxis: 'y', type: 'scatter', mode: 'markers', marker: { size: 4, color: alpha(col(a), .35) }, customdata: order, text: names, hovertemplate: `Agent ${a}, ${k.slice(-2)}: %{y:.0f} EUR<br>%{text}<extra></extra>` });
       tr.push({ x: x.map(v => v + off), y: order.map(i => gainOf(k, i)), yaxis: 'y2', type: 'scatter', mode: 'markers', marker: { size: 4, color: alpha(col(a), .35) }, customdata: order, text: names, hovertemplate: `Agent ${a}, ${k.slice(-2)}: %{y:.0f} EUR<br>%{text}<extra></extra>` }); });
@@ -687,52 +691,29 @@ function vRank() {
 function openDay(sc) { S.day = { season: sc.season, hour: sc.hour, w: sc.w, F: sc.F, price: sc.price }; S.view = 'traj'; render(); }
 function divScale() { return root.dataset.theme !== 'light' ? [[0, '#a8402f'], [.5, '#2a2c31'], [1, '#4f8f45']] : [[0, '#e07a68'], [.5, '#f4f4f2'], [1, '#6fae5a']]; }
 function vHeat() {
-  const idx = sel(), ags = AG.filter(a => S.ags.has(a)); if (!ags.length) return empty();
-  $('#title').textContent = 'Mean gain over u₀ for each pair of feed disturbances'; $('#meta').textContent = 'EUR per day, mean over seasons, seeds and the selected contracts';
+  const idx = sel().filter(i => S.season === 'all' || META.scen[i].season === S.season), ags = AG.filter(a => AGS().has(a)); if (!ags.length) return empty();
+  const single = S.season !== 'all' && S.price !== 'all';
+  $('#title').textContent = 'Gain over u₀ for each pair of feed disturbances';
+  $('#meta').textContent = single ? `${S.season === 'winter' ? 'Winter' : 'Summer'} day, ${PL[S.price].toLowerCase()} contract · EUR, mean over seeds` : 'EUR per day, mean over the selected days, contracts and seeds';
   const L = baseLayout(); L.margin = { l: 120, r: 16, t: 34, b: 80 }; const n = ags.length, gap = .025, w = (1 - gap * (n - 1)) / n, tr = [];
-  let zmax = 0; const Z = {};
-  CSV = [['agent', 'w_disturbance', 'F_disturbance', 'mean_gain_eur']];
-  ags.forEach(a => { Z[a] = PERTS.map(wp => PERTS.map(fp => { const ii = idx.filter(i => META.scen[i].w === wp && META.scen[i].F === fp); const v = mean(SEEDS.filter(s => S.seeds.has(s)).flatMap(s => ii.map(i => gainOf(runId(a, s), i)))); zmax = Math.max(zmax, Math.abs(v)); CSV.push([a, wp, fp, v.toFixed(1)]); return v; })); });
+  const Z = {}; CSV = [['agent', 'w_disturbance', 'F_disturbance', 'gain_eur']];
+  ags.forEach(a => { Z[a] = PERTS.map(wp => PERTS.map(fp => { const ii = idx.filter(i => META.scen[i].w === wp && META.scen[i].F === fp); const v = mean(SEEDS.filter(s => S.seeds.has(s)).flatMap(s => ii.map(i => gainOf(runId(a, s), i)))); CSV.push([a, wp, fp, v.toFixed(1)]); return v; })); });
+  // colour: compare the selected agents within each disturbance pair (1 = best agent in that pair, 0 = worst)
+  const C = {}; ags.forEach(a => C[a] = PERTS.map(() => PERTS.map(() => 1)));
+  PERTS.forEach((_, r) => PERTS.forEach((_, c) => { const v = ags.map(a => Z[a][r][c]), lo = Math.min(...v), hi = Math.max(...v); ags.forEach(a => C[a][r][c] = hi - lo < 1e-9 ? 1 : (Z[a][r][c] - lo) / (hi - lo)); }));
+  const dark = root.dataset.theme !== 'light', scale = dark ? [[0, '#a8402f'], [.5, '#c99a3b'], [1, '#4f8f45']] : [[0, '#e8826f'], [.5, '#f1cd73'], [1, '#86c06e']];
   ags.forEach((a, gi) => {
     const xa = gi ? 'x' + (gi + 1) : 'x', ya = gi ? 'y' + (gi + 1) : 'y';
     L[gi ? 'xaxis' + (gi + 1) : 'xaxis'] = { domain: [gi * (w + gap), gi * (w + gap) + w], tickvals: [0, 1, 2, 3, 4], ticktext: PERTS.map(p => PERT[p]), tickangle: -45, anchor: ya, showgrid: false, zeroline: false, fixedrange: true };
     L[gi ? 'yaxis' + (gi + 1) : 'yaxis'] = { anchor: xa, autorange: 'reversed', tickvals: [0, 1, 2, 3, 4], ticktext: PERTS.map(p => PERT[p]), showticklabels: gi === 0, showgrid: false, zeroline: false, fixedrange: true };
     L.annotations = (L.annotations || []).concat([{ text: `Agent ${a}`, xref: 'paper', yref: 'paper', x: gi * (w + gap) + w / 2, y: 1.01, yanchor: 'bottom', showarrow: false, font: { size: 13, color: col(a) } }]);
-    tr.push({ type: 'heatmap', xaxis: xa, yaxis: ya, z: Z[a], x: [0, 1, 2, 3, 4], y: [0, 1, 2, 3, 4], zmin: -zmax, zmax, colorscale: divScale(), showscale: gi === n - 1, colorbar: { thickness: 10, len: .8, outlinewidth: 0, title: { text: 'EUR', side: 'right' } }, xgap: 2, ygap: 2, text: Z[a].map(r => r.map(v => fmt0(v))), texttemplate: '%{text}', textfont: { size: n > 3 ? 9.5 : 11 },
-      customdata: PERTS.map(wp => PERTS.map(fp => `CH₄ fraction: ${PERT[wp]}<br>Flow: ${PERT[fp]}`)), hovertemplate: `Agent ${a}<br>%{customdata}<br>%{z:.0f} EUR<extra></extra>` });
+    tr.push({ type: 'heatmap', xaxis: xa, yaxis: ya, z: C[a], x: [0, 1, 2, 3, 4], y: [0, 1, 2, 3, 4], zmin: 0, zmax: 1, colorscale: scale, showscale: false, xgap: 3, ygap: 3, text: Z[a].map(r => r.map(v => fmt0(v))), texttemplate: '%{text}', textfont: { size: n > 3 ? 10 : 12 },
+      customdata: PERTS.map((wp, r) => PERTS.map((fp, c) => `CH₄ fraction: ${PERT[wp]}<br>Flow: ${PERT[fp]}<br>Gain: ${fmt0(Z[a][r][c])} EUR`)), hovertemplate: `Agent ${a}<br>%{customdata}<extra></extra>` });
   });
   L.annotations.push({ text: 'Flow disturbance', xref: 'paper', yref: 'paper', x: .5, y: -.24, showarrow: false }, { text: 'CH₄ fraction disturbance', xref: 'paper', yref: 'paper', x: 0, xshift: -100, y: .5, textangle: -90, showarrow: false });
-  $('#legend').innerHTML = ''; $('#mtab').innerHTML = `<p class="hint">Green: the agent earns more than u₀; red: less. Each cell averages ${idx.filter(i => META.scen[i].w === 'none' && META.scen[i].F === 'none').length} days per seed.</p>`;
-  Plotly.react('plot', tr, L, PCONF);
-}
-function vHour() {
-  const idx = sel(), ags = AG.filter(a => S.ags.has(a));
-  $('#title').textContent = 'Mean gain over u₀ by start hour'; $('#meta').textContent = 'EUR per day, mean over the disturbances and seeds';
-  const L = baseLayout(); L.margin.t = 30; L.hovermode = 'x';
-  const tr = []; CSV = [['season', 'agent', 'start_hour', 'mean_gain_eur', 'u0_profit_eur']];
-  ['winter', 'summer'].forEach((se, gi) => {
-    const xa = gi ? 'x2' : 'x', ya = gi ? 'y2' : 'y';
-    L[gi ? 'xaxis2' : 'xaxis'] = axis({ domain: gi ? [.53, 1] : [0, .47], tickvals: HOURS, ticktext: HOURS.map(hh), title: { text: 'Start hour (UTC)' }, anchor: ya });
-    L[gi ? 'yaxis2' : 'yaxis'] = axis({ anchor: xa, matches: gi ? 'y' : undefined, showticklabels: !gi, title: gi ? undefined : { text: 'Mean gain over u₀ (EUR per day)' }, zeroline: true, zerolinecolor: css('--ink') });
-    L.annotations = (L.annotations || []).concat([{ text: se === 'winter' ? 'Winter day' : 'Summer day', xref: 'paper', yref: 'paper', x: gi ? .765 : .235, y: 1.02, yanchor: 'bottom', showarrow: false, font: { size: 13 } }]);
-    ags.forEach(a => { const y = HOURS.map(h => { const ii = idx.filter(i => META.scen[i].season === se && META.scen[i].hour === h); const v = mean(SEEDS.filter(s => S.seeds.has(s)).flatMap(s => ii.map(i => gainOf(runId(a, s), i)))); CSV.push([se, a, h, v.toFixed(1), mean(ii.map(i => META.u0.profit_eur[i])).toFixed(1)]); return v; });
-      tr.push({ x: HOURS, y, xaxis: xa, yaxis: ya, type: 'scatter', mode: 'lines+markers', line: { color: col(a), width: 1.8 }, marker: { size: 7 }, hovertemplate: `Agent ${a}: %{y:.0f} EUR<extra></extra>` }); });
-  });
-  legendHTML(agItems(false).filter(i => !i[0].startsWith('Fixed')));
-  $('#mtab').innerHTML = `<p class="hint">The start hour decides which part of the daily electricity price profile falls in the 24 h window and when the feed disturbance arrives, 6 h after the start.</p>`;
-  Plotly.react('plot', tr, L, PCONF);
-}
-function vTrade() {
-  const idx = sel(), K = S.tradeK, kl = { frac_ok_both: 'both products', frac_ok_ch4: 'CH₄', frac_ok_co2: 'CO₂' }[K];
-  $('#title').textContent = 'Profit against purity compliance'; $('#meta').textContent = 'Each point is one day and seed';
-  const L = baseLayout(); L.hovermode = 'closest'; L.xaxis = axis({ title: { text: `Cycles with ${kl} on specification (%)` }, range: [-3, 103] }); L.yaxis = axis({ title: { text: 'Profit rate (EUR h⁻¹)' } });
-  const tr = [], names = META.scen.map(scenName); CSV = [['run', 'scenario', K, 'profit_eur_per_h']];
-  runs(false).forEach(([a, s, k]) => { tr.push({ x: idx.map(i => 100 * META.runs[k][K][i]), y: idx.map(i => META.runs[k].profit_eur_per_h[i]), type: 'scatter', mode: 'markers', marker: { size: 6, color: alpha(col(a), .55), symbol: ['circle', 'diamond', 'square'][s - 1] }, customdata: idx, text: idx.map(i => names[i]), hovertemplate: `Agent ${a}, seed ${s}<br>%{text}<br>%{x:.0f}% · %{y:.0f} EUR/h<extra></extra>` });
-    idx.forEach(i => CSV.push([k, META.scen[i].id, META.runs[k][K][i], META.runs[k].profit_eur_per_h[i]])); });
-  if (S.withU0) tr.push({ x: idx.map(i => 100 * META.u0[K][i]), y: idx.map(i => META.u0.profit_eur_per_h[i]), type: 'scatter', mode: 'markers', marker: { size: 7, symbol: 'x-thin', line: { width: 1.6, color: col(0) } }, customdata: idx, text: idx.map(i => names[i]), hovertemplate: 'u₀<br>%{text}<br>%{x:.0f}% · %{y:.0f} EUR/h<extra></extra>' });
-  legendHTML([...agItems(false).filter(i => !i[0].startsWith('Fixed')), ['seed 1, 2, 3', css('--ink'), '', 2, `<circle cx="5" cy="5" r="3" fill="${css('--ink')}"/><path d="M13 1.5 L16.5 5 L13 8.5 L9.5 5Z" fill="${css('--ink')}"/><rect x="19" y="2" width="6" height="6" fill="${css('--ink')}"/>`], ['fixed u₀', css('--ink'), '', 2, `<path d="M9 1 L17 9 M17 1 L9 9" stroke="${css('--ink')}" stroke-width="1.6"/>`]]);
-  $('#mtab').innerHTML = `<p class="hint">The agents do not always keep both products on specification: when one product pays little, it can be more profitable to let it go off specification and push the other. Select a point to open that day.</p>`;
-  Plotly.react('plot', tr, L, PCONF).then(gd => { gd.removeAllListeners && gd.removeAllListeners('plotly_click'); gd.on('plotly_click', ev => openDay(META.scen[ev.points[0].customdata])); });
+  $('#legend').innerHTML = `<span><svg viewBox="0 0 60 8" style="width:60px"><defs><linearGradient id="lgh"><stop offset="0" stop-color="${scale[0][1]}"/><stop offset=".5" stop-color="${scale[1][1]}"/><stop offset="1" stop-color="${scale[2][1]}"/></linearGradient></defs><rect width="60" height="8" rx="2" fill="url(#lgh)"/></svg>worst to best of the selected agents, in each disturbance pair</span>`;
+  $('#mtab').innerHTML = `<p class="hint">Colours compare the agents within each pair of disturbances only, since the pairs differ in how much there is to gain. Numbers are the gain over u₀ in EUR. ${single ? 'Each cell is one test day; select it to open the day.' : 'Pick one day and one contract to see single test days.'}</p>`;
+  Plotly.react('plot', tr, L, PCONF).then(gd => { gd.removeAllListeners && gd.removeAllListeners('plotly_click'); if (single) gd.on('plotly_click', ev => { const p = ev.points[0], i = idx.find(i => META.scen[i].w === PERTS[p.y] && META.scen[i].F === PERTS[p.x]); if (i != null) openDay(META.scen[i]); }); });
 }
 function vBrk() {
   const idx = sel(), B = META.brk;
@@ -740,7 +721,7 @@ function vBrk() {
   const cats = [], ch4 = [], co2 = [], cost = [], prof = [];
   const add = (lab, keys) => { const pick = f => mean(keys.flatMap(k => idx.map(i => B[k][f][i]).filter(v => v != null))); const a = pick('ch4'), b = pick('co2'), c = pick('cost'); if (!isFinite(a)) return; cats.push(lab); ch4.push(a); co2.push(b); cost.push(-c); prof.push(a + b - c); };
   if (S.withU0) add('u₀', ['u0']);
-  AG.filter(a => S.ags.has(a)).forEach(a => add('Agent ' + a, SEEDS.filter(s => S.seeds.has(s)).map(s => runId(a, s)).filter(k => META.haveSeries.includes(k))));
+  AG.filter(a => AGS().has(a)).forEach(a => add('Agent ' + a, SEEDS.filter(s => S.seeds.has(s)).map(s => runId(a, s)).filter(k => META.haveSeries.includes(k))));
   const L = baseLayout(); L.barmode = 'relative'; L.hovermode = 'x'; L.xaxis = axis({ showgrid: false }); L.yaxis = axis({ title: { text: 'EUR per day' }, zeroline: true, zerolinecolor: css('--ink') });
   const tr = [{ x: cats, y: ch4, type: 'bar', name: 'CH₄ revenue', marker: { color: alpha(css('--a3'), .8) }, hovertemplate: 'CH₄ revenue %{y:.0f} EUR<extra></extra>' },
     { x: cats, y: co2, type: 'bar', name: 'CO₂ revenue', marker: { color: alpha(css('--a1'), .8) }, hovertemplate: 'CO₂ revenue %{y:.0f} EUR<extra></extra>' },
@@ -758,21 +739,32 @@ async function vTraj() {
   const ext = d.ext0, ks = runs(true).filter(r => d[r[2]]);
   const mode = { p: 'markers', pl: 'lines+markers', l: 'lines' }[S.draw], lop = S.draw === 'l' ? 1 : .45, lw = S.draw === 'l' ? 1.6 : 1;
   const ctx = CTX.filter(c => S.ctx.includes(c[0])), vars = S.vars.filter(v => V[v]);
-  const rows = [...ctx.map(c => ({ ctx: c })), ...vars.map(v => ({ v }))], nr = rows.length;
-  if (!nr) return empty('Select at least one variable.');
-  const gap = .05, h = (1 - gap * (nr - 1)) / (ctx.length * .7 + vars.length || 1);
-  const L = baseLayout(); L.hovermode = 'x'; L.margin.l = 100; const tr = [], shapes = []; let top = 1;
+  const res = vars.filter(v => V[v].g !== 'Operating variables'), ops = vars.filter(v => V[v].g === 'Operating variables');
+  const groups = [['Test day', ctx.map(c => ({ ctx: c })), 'ctx'], ['Results', res.map(v => ({ v })), 'res'], ['Operating variables', ops.map(v => ({ v })), 'ops']].filter(g => g[1].length);
+  if (!groups.length) return empty('Select at least one variable.');
+  // fixed heights in pixels: the page grows instead of squeezing the plots
+  const HC = 86, HV = 170, GAP = 26, GGAP = 58, TOP = 34, BOT = 54;
+  let y = TOP; const rows = [];
+  groups.forEach(([gname, items, kind], gi) => { if (gi) y += GGAP - GAP; items.forEach((it, j) => { const hpx = kind === 'ctx' ? HC : HV; rows.push(Object.assign({ kind, gname, first: j === 0, y0: y, y1: y + hpx }, it)); y += hpx + GAP; }); });
+  const H = y - GAP + BOT; $('#plot').style.height = H + 'px';
+  const fy = px => 1 - (px - TOP) / (H - TOP - BOT);       // pixel from top -> paper y
+  const L = baseLayout(); L.height = H; L.autosize = true; L.hovermode = 'x'; L.margin = { l: 100, r: 18, t: TOP, b: BOT }; const tr = [], shapes = [], ann = [];
   const series = (P, key) => { if (key === 'cum') { let s = 0; return P.profit.map(v => s += v); } if (key === 'rate') return P.profit.map((v, i) => v / P.dt[i]); if (key === 'cost') return P.cost.map((v, i) => v / P.dt[i]); if (key.startsWith('rev')) return P[key].map((v, i) => v / P.dt[i]); if (key.startsWith('u:')) return P.u[+key.slice(2)]; if (key.startsWith('pur')) return P[key].map(v => v * 100); return P[key]; };
   const xOf = (P, key) => key === 'cum' ? P.t.map((t, i) => t + P.dt[i]) : P.t;
   const specAt = (t, k) => { let j = 0; while (j < ext.t.length - 1 && ext.t[j + 1] <= t) j++; return ext[k][j]; };
   const gate = (P, cp) => P.t.map((t, i) => cp === 'both' ? P.pur_ch4[i] >= specAt(t, 'spec_ch4') - 1e-9 && P.pur_co2[i] >= specAt(t, 'spec_co2') - 1e-9 : P['pur_' + cp.toLowerCase()][i] >= specAt(t, 'spec_' + cp.toLowerCase()) - 1e-9);
+  const tint = { ctx: alpha(css('--ink').length === 7 ? css('--ink') : '#888888', root.dataset.theme === 'light' ? .045 : .07), ops: alpha(css('--a1'), root.dataset.theme === 'light' ? .07 : .1) };
+  groups.forEach(([gname, items, kind]) => {
+    const rs = rows.filter(r => r.gname === gname), top = rs[0].y0 - 22, bot = rs[rs.length - 1].y1 + 12;
+    if (tint[kind]) shapes.push({ type: 'rect', xref: 'paper', yref: 'paper', x0: -.075, x1: 1.008, y0: fy(bot), y1: fy(top), fillcolor: tint[kind], line: { width: 0 }, layer: 'below' });
+    ann.push({ text: `<b>${gname}</b>`, xref: 'paper', yref: 'paper', x: -.07, y: fy(top + 2), xanchor: 'left', yanchor: 'top', showarrow: false, font: { size: 12 } });
+  });
   CSV = [];
   rows.forEach((r, i) => {
-    const hh2 = r.ctx ? h * .7 : h, dom = [Math.max(0, top - hh2), top]; top -= hh2 + gap;
-    const ya = i ? 'yaxis' + (i + 1) : 'yaxis', yr = i ? 'y' + (i + 1) : 'y';
+    const dom = [fy(r.y1), fy(r.y0)], ya = i ? 'yaxis' + (i + 1) : 'yaxis', yr = i ? 'y' + (i + 1) : 'y';
     if (r.ctx) {
       const [k, lab, unit, short] = r.ctx; L[ya] = axis({ domain: dom, anchor: 'x', nticks: 3, title: { text: short, font: { size: 11 }, standoff: 6 } });
-      const line = (y, name, dash) => tr.push({ x: ext.t, y, xaxis: 'x', yaxis: yr, type: 'scatter', mode: 'lines', line: { shape: 'hv', color: css('--ink'), width: 1.4, dash }, name, hovertemplate: `${name} %{y:.4g}<extra></extra>` });
+      const line = (yv, name, dash) => tr.push({ x: ext.t, y: yv, xaxis: 'x', yaxis: yr, type: 'scatter', mode: 'lines', line: { shape: 'hv', color: css('--ink'), width: 1.4, dash }, name, hovertemplate: `${name} %{y:.4g}<extra></extra>` });
       if (k === 'pel') line(ext.pel, 'Electricity');
       if (k === 'w') line(ext.w, 'CH₄ fraction');
       if (k === 'F') line(ext.F.map(v => v / 3.098), 'Flow');
@@ -786,23 +778,36 @@ async function vTraj() {
     if (r.v === 'pur') comps.forEach(cp => tr.push({ x: ext.t, y: ext['spec_' + cp.toLowerCase()].map(x => x * 100), xaxis: 'x', yaxis: yr, type: 'scatter', mode: 'lines', line: { shape: 'hv', color: css('--ink'), width: 1, dash: cp === 'CH4' ? 'dash' : 'dot' }, hoverinfo: 'skip' }));
     const pols = [...(S.withU0 ? [[0, 0, 'u0']] : []), ...ks];
     comps.forEach(cp => pols.forEach(([a, s, k]) => {
-      const P = d[k], key = cp === 'X' ? v.keys.X : v.keys[cp], y = series(P, key), x = xOf(P, key), g = gate(P, cp === 'X' ? 'both' : cp);
+      const P = d[k], key = cp === 'X' ? v.keys.X : v.keys[cp], yv = series(P, key), x = xOf(P, key), g = gate(P, cp === 'X' ? 'both' : cp);
       const sym = cp === 'CO2' ? ['square', 'square-open'] : ['circle', 'circle-open'];
-      tr.push({ x, y, xaxis: 'x', yaxis: yr, type: 'scatter', mode, marker: { size: 5, color: col(a), symbol: g.map(o => sym[o ? 0 : 1]), line: { width: 1.1, color: col(a) } }, line: { color: alpha(col(a), lop), width: lw, dash: a ? DASH[s] : 'dash' }, hovertemplate: `${a ? 'Agent ' + a + ' s' + s : 'u₀'}${comps.length === 2 ? ' ' + COMPS[cp] : ''}: %{y:.4g}<extra></extra>` });
-      CSV.push([`${k}:${key}`, ...y]);
+      tr.push({ x, y: yv, xaxis: 'x', yaxis: yr, type: 'scatter', mode, marker: { size: 5, color: col(a), symbol: g.map(o => sym[o ? 0 : 1]), line: { width: 1.1, color: col(a) } }, line: { color: alpha(col(a), lop), width: lw, dash: a ? DASH[s] : 'dash' }, hovertemplate: `${a ? 'Agent ' + a + ' s' + s : 'u₀'}${comps.length === 2 ? ' ' + COMPS[cp] : ''}: %{y:.4g}<extra></extra>` });
+      CSV.push([`${k}:${key}`, ...yv]);
     }));
   });
-  L.xaxis = axis({ title: { text: 'Hours from the start of the window' }, range: [0, 24.4], anchor: nr === 1 ? 'y' : 'y' + nr, dtick: 3 });
-  L.shapes = [{ type: 'line', xref: 'x', x0: 6, x1: 6, yref: 'paper', y0: 0, y1: 1, line: { color: css('--rule'), width: 1, dash: 'dot' } }];
+  L.xaxis = axis({ title: { text: 'Hours from the start of the window' }, range: [0, 24.4], anchor: 'y' + rows.length === 'y1' ? 'y' : 'y' + rows.length, dtick: 3 });
+  L.xaxis.anchor = rows.length === 1 ? 'y' : 'y' + rows.length;
+  L.shapes = [...shapes, { type: 'line', xref: 'x', x0: 6, x1: 6, yref: 'paper', y0: 0, y1: 1, line: { color: css('--rule'), width: 1, dash: 'dot' } }];
+  L.annotations = ann;
   CSV.unshift(['series', 'values (one per cycle)']);
-  const ink = css('--ink'), mk = (s, f) => s === 'c' ? `<circle cx="13" cy="5" r="4" fill="${f ? ink : 'none'}" stroke="${ink}" stroke-width="1.3"/>` : `<rect x="9" y="1" width="8" height="8" fill="${f ? ink : 'none'}" stroke="${ink}" stroke-width="1.3"/>`;
+  const ink = css('--ink'), mk = (s2, f) => s2 === 'c' ? `<circle cx="13" cy="5" r="4" fill="${f ? ink : 'none'}" stroke="${ink}" stroke-width="1.3"/>` : `<rect x="9" y="1" width="8" height="8" fill="${f ? ink : 'none'}" stroke="${ink}" stroke-width="1.3"/>`;
   const items = agItems(S.draw !== 'p'); if (S.draw !== 'l') items.push(['on specification', '', '', 2, mk('c', 1)], ['off specification', '', '', 2, mk('c', 0)]);
   if (vars.some(x => isComp(x) && compOf(x) === 'both')) items.push(['CH₄', '', '', 2, mk('c', 1)], ['CO₂', '', '', 2, mk('s', 1)]);
   if (vars.includes('pur')) items.push(['contract', ink, 'dash', 1]);
   legendHTML(items);
-  $('#mtab').innerHTML = `<table class="tab"><thead><tr><th>Policy</th><th class="n">Profit (EUR)</th><th class="n">Gain over u₀ (EUR)</th><th class="n">CH₄ on spec (%)</th><th class="n">CO₂ on spec (%)</th><th class="n">Both (%)</th><th class="n">Cycles</th></tr></thead><tbody>${[['u₀', META.u0], ...runs(false).map(([a, s, k]) => [`Agent ${a}, seed ${s}`, META.runs[k]])].map(([l, R]) => { const i = META.idx[id]; return `<tr><td>${l}</td><td class="n">${fmt0(R.profit_eur[i])}</td><td class="n">${R === META.u0 ? '' : fmt0(R.profit_eur[i] - META.u0.profit_eur[i])}</td><td class="n">${(100 * R.frac_ok_ch4[i]).toFixed(0)}</td><td class="n">${(100 * R.frac_ok_co2[i]).toFixed(0)}</td><td class="n">${(100 * R.frac_ok_both[i]).toFixed(0)}</td><td class="n">${R.n_cycles[i]}</td></tr>`; }).join('')}</tbody></table><p class="hint" style="margin-top:6px">The dotted vertical line marks the feed disturbance, 6 h after the start. Points mark the start of each cycle; cumulative profit is drawn at the end.</p>`;
-  Plotly.react('plot', tr, L, PCONF); Plotly.Plots.resize('plot');
+  $('#mtab').innerHTML = `<table class="tab"><thead><tr><th>Policy</th><th class="n">Profit (EUR)</th><th class="n">Gain over u₀ (EUR)</th><th class="n">CH₄ on spec (%)</th><th class="n">CO₂ on spec (%)</th><th class="n">Both (%)</th><th class="n">Cycles</th></tr></thead><tbody>${[['u₀', META.u0], ...runs(false).map(([a, s, k]) => [`Agent ${a}, seed ${s}`, META.runs[k]])].map(([l, Rr]) => { const i = META.idx[id]; return `<tr><td>${l}</td><td class="n">${fmt0(Rr.profit_eur[i])}</td><td class="n">${Rr === META.u0 ? '' : fmt0(Rr.profit_eur[i] - META.u0.profit_eur[i])}</td><td class="n">${(100 * Rr.frac_ok_ch4[i]).toFixed(0)}</td><td class="n">${(100 * Rr.frac_ok_co2[i]).toFixed(0)}</td><td class="n">${(100 * Rr.frac_ok_both[i]).toFixed(0)}</td><td class="n">${Rr.n_cycles[i]}</td></tr>`; }).join('')}</tbody></table><p class="hint" style="margin-top:6px">The dotted vertical line marks the feed disturbance, 6 h after the start. Points mark the start of each cycle; cumulative profit is drawn at the end.</p>`;
+  await Plotly.react('plot', tr, L, PCONF);
+  // revenue and cost of this day, for each policy shown
+  const sum = a => a.reduce((x, y) => x + y, 0), pol2 = [...(S.withU0 ? [['u₀', 'u0']] : []), ...ks.map(([a, s, k]) => [`Agent ${a}, seed ${s}`, k])];
+  const cats = pol2.map(p => p[0]), r1 = pol2.map(p => sum(d[p[1]].rev_ch4)), r2 = pol2.map(p => sum(d[p[1]].rev_co2)), c = pol2.map(p => -sum(d[p[1]].cost));
+  const L2 = baseLayout(); L2.barmode = 'relative'; L2.hovermode = 'x'; L2.margin = { l: 100, r: 18, t: 10, b: 40 }; L2.xaxis = axis({ showgrid: false }); L2.yaxis = axis({ title: { text: 'EUR in the day' }, zeroline: true, zerolinecolor: css('--ink') });
+  Plotly.react('plot2', [{ x: cats, y: r1, type: 'bar', marker: { color: alpha(css('--a3'), .8) }, hovertemplate: 'CH₄ revenue %{y:.0f} EUR<extra></extra>' },
+    { x: cats, y: r2, type: 'bar', marker: { color: alpha(css('--a1'), .8) }, hovertemplate: 'CO₂ revenue %{y:.0f} EUR<extra></extra>' },
+    { x: cats, y: c, type: 'bar', marker: { color: alpha(css('--a5'), .8) }, hovertemplate: 'Electricity %{y:.0f} EUR<extra></extra>' },
+    { x: cats, y: cats.map((_, i) => r1[i] + r2[i] + c[i]), type: 'scatter', mode: 'markers', marker: { symbol: 'line-ew', size: 40, line: { width: 3, color: css('--ink') } }, hovertemplate: 'Profit %{y:.0f} EUR<extra></extra>' }], L2, PCONF);
+  const sw = cc => `<rect x="4" y="0" width="18" height="10" rx="2" fill="${cc}" opacity=".8"/>`;
+  $('#t2').innerHTML = `Where the profit of this day comes from <span class="legend" style="display:inline-flex;margin-left:18px;font-weight:400"><span><svg viewBox="0 0 26 10">${sw(css('--a3'))}</svg>CH₄ revenue</span><span><svg viewBox="0 0 26 10">${sw(css('--a1'))}</svg>CO₂ revenue</span><span><svg viewBox="0 0 26 10">${sw(css('--a5'))}</svg>electricity</span><span><svg viewBox="0 0 26 10"><line x1="1" x2="25" y1="5" y2="5" stroke="${ink}" stroke-width="3"/></svg>profit</span></span>`;
 }
+function trajLayout(on) { $('#mainP').classList.toggle('tall', on); if (!on) { $('#plot').style.height = ''; } }
 function empty(msg = 'Select at least one agent.') { Plotly.purge('plot'); $('#plot').innerHTML = `<p class="loading">${msg}</p>`; }
 
 // ---------------------------------------------------------------- render
@@ -812,9 +817,10 @@ async function render() {
   const my = ++busy;
   try {
     await getMeta(); fixHour(); syncSide(); if (my !== busy) return;
-    if (S.view !== 'traj' && S.view !== 'brk' && !AG.some(a => S.ags.has(a))) return empty();
-    ({ train: vTrain, gain: vGain, ecdf: vEcdf, rank: vRank, heat: vHeat, hour: vHour, trade: vTrade, brk: vBrk })[S.view]?.();
-    if (S.view === 'traj') { if (!S.trajInit) { S.trajInit = true; S.ags = new Set([4]); syncSide(); } await vTraj(); }
+    $$('#plot > .loading').forEach(e => e.remove()); trajLayout(S.view === 'traj');
+    if (S.view !== 'traj' && S.view !== 'brk' && !AG.some(a => AGS().has(a))) return empty();
+    ({ train: vTrain, gain: vGain, ecdf: vEcdf, rank: vRank, heat: vHeat, brk: vBrk })[S.view]?.();
+    if (S.view === 'traj') await vTraj();
     setTimeout(() => { const g = $('#plot'); g.data && Plotly.Plots.resize(g); }, 30);
   } catch (e) { console.error(e); $('#plot').innerHTML = `<p class="loading">The data could not be loaded. Check that the folder <code>rl-economic/data</code> was uploaded with the page.</p>`; }
 }
